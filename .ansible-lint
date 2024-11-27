@@ -1,0 +1,15 @@
+---
+use_default_rules: true
+exclude_paths:
+  - '**/*.sops.yml'
+  - .github/
+skip_list:
+  - galaxy[no-changelog]
+  - yaml[indentation]
+  - yaml[line-length]
+  # Allow Jinja templating inside task and play names
+  - name[template]
+warn_list:
+  - command-instead-of-module
+  - command-instead-of-shell
+  - unnamed-task
