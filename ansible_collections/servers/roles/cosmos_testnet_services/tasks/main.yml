@@ -1,0 +1,13 @@
+---
+- name: Explorer
+  ansible.builtin.include_tasks: explorer.yml
+
+- name: Get faucet vars
+  ansible.builtin.include_tasks: get_faucet_vars.yml
+
+- name: Faucet
+  ansible.builtin.include_tasks: faucet.yml
+
+- name: Fund faucet wallets
+  ansible.builtin.include_tasks: fund_wallets.yml
+  loop: "{{ faucet_chains }}"

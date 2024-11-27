@@ -1,0 +1,16 @@
+---
+- name: Get faucet keys | {{ item }}
+  containers.podman.podman_container_exec:
+    name: "{{ item }}-node"
+    command: ./node keys show faucet --home /config
+    workdir: /app
+  register: faucet_key
+  loop: "{{ cosmos_testnet_services_testnets }}"
+  changed_when: false
+
+- name: Create mapped dictionary of addresses | {{ item }}
+  ansible.builtin.set_fact:
+    faucet_chains: "{{ faucet_chains | default([]) + [{'chain': cosmos_testnet_services_testnets[idx], 'address': (faucet_key.results[idx].stdout | from_yaml)[0].address}] }}"
+  loop: "{{ cosmos_testnet_services_testnets }}"
+  loop_control:
+    index_var: idx

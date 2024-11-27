@@ -1,0 +1,54 @@
+---
+- name: Create configuration directory
+  ansible.builtin.file:
+    path: "{{ github_notifier_config_path }}"
+    state: directory
+    mode: "0700"
+
+- name: Deploy configuration
+  ansible.builtin.template:
+    src: config.yaml.j2
+    dest: "{{ github_notifier_config_path }}/config.yaml"
+    mode: "0644"
+
+- name: Quadlet volume file
+  containers.podman.podman_volume:
+    name: validator-github-notifier
+    state: quadlet
+    label:
+      app: validator-github-notifier
+
+- name: Quadlet container file
+  containers.podman.podman_container:
+    name: validator-github-notifier
+    image: ghcr.io/01builders/github-notifier:rolling@sha256:523024dd6d379628300d5eb5cddce2c9f2137c949867fa457b4a830bb1250458
+    state: quadlet
+    command: python3 /app/github_notifier.py
+    env:
+      SLACK_TOKEN: "{{ github_notifier_slack_token }}"
+      SLACK_CHANNEL: validators-notifications
+      NOTIFIER_HEALTHCHECKS_ID: "{{ github_notifier_healthchecks_id }}"
+      LOG_LEVEL: DEBUG
+    volumes:
+      - validator-github-notifier.volume:/config/db:bind
+      - "{{ github_notifier_config_path }}/config.yaml:/config/config.yaml:ro"
+    label:
+      app: validator-github-notifier
+    quadlet_options:
+      - |
+
+        [Unit]
+        Description=validator-github-notifier
+        After=network-online.target
+        Wants=network-online.target
+
+        [Install]
+        WantedBy=default.target
+
+- name: Schedule task to run every 6 hours
+  ansible.builtin.cron:
+    name: validator-github-notifier
+    minute: "0"
+    hour: "*/6"
+    job: systemctl start validator-github-notifier.service
+    state: present

@@ -1,0 +1,35 @@
+global:
+  resolve_timeout: 5m
+
+route:
+  group_by: [alertname]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 2h
+  receiver: blackhole
+
+receivers:
+  - name: blackhole
+  - name: telegram
+    telegram_configs:
+    - bot_token: {{ telegram_bot_token }}
+      api_url: 'https://api.telegram.org'
+      chat_id: {{ telegram_chat_id }}
+      parse_mode: HTML
+      message: |-
+        {% raw %}🚨 <b>{{ .Status | toUpper }}</b>
+        <b>Alert:</b> {{ .CommonAnnotations.summary }}
+        <b>Description:</b> {{ .CommonAnnotations.description }}
+        <b>Severity:</b> {{ .CommonLabels.severity }}
+        <b>Started:</b> {{ .StartsAt }}
+        {{- if eq .Status "resolved" }}
+        <b>Resolved:</b> {{ .EndsAt }}
+        {{- end }}{% endraw %}
+
+inhibit_rules:
+  # prevent warning alerts if there's already a critical alert for the same issue
+  - source_match:
+      severity: critical
+    target_match:
+      severity: warning
+    equal: ['alertname']

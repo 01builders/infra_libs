@@ -1,0 +1,72 @@
+---
+- name: Fish | Set fish as default shell
+  ansible.builtin.user:
+    name: "{{ configure_host_users_username }}"
+    shell: /usr/bin/fish
+
+- name: Fish | Create directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+  loop:
+    - ~/.config/eza
+    - ~/.config/fish
+    - ~/.config/fish/conf.d
+    - ~/.config/bat
+    - ~/.config/bat/themes
+  become: true
+  become_user: "{{ configure_host_users_username }}"
+
+- name: Fish | config.fish
+  ansible.builtin.copy:
+    content: |
+      # Source modular configuration files
+      for file in ~/.config/fish/conf.d/*.fish
+          source $file
+      end
+    dest: ~/.config/fish/config.fish
+    mode: "644"
+  become: true
+  become_user: "{{ configure_host_users_username }}"
+
+- name: Fish | interactive_config.fish
+  ansible.builtin.copy:
+    src: interactive_config.fish
+    dest: ~/.config/fish/conf.d/interactive_config.fish
+    mode: "644"
+  become: true
+  become_user: "{{ configure_host_users_username }}"
+
+- name: Fish | config.fish
+  ansible.builtin.copy:
+    src: starship.toml
+    dest: ~/.config/starship.toml
+    mode: "644"
+  become: true
+  become_user: "{{ configure_host_users_username }}"
+
+- name: Fish | Bat theme
+  ansible.builtin.get_url:
+    url: https://raw.githubusercontent.com/catppuccin/bat/refs/heads/main/themes/Catppuccin%20Mocha.tmTheme
+    dest: ~/.config/bat/themes/Catppuccin Mocha.tmTheme
+    mode: "0644"
+  register: bat_theme
+  become: true
+  become_user: "{{ configure_host_users_username }}"
+
+- name: Fish | Create bat cache
+  when: bat_theme.changed # noqa: no-handler
+  ansible.builtin.command:
+    cmd: batcat cache --build
+  changed_when: true
+  become: true
+  become_user: "{{ configure_host_users_username }}"
+
+- name: Fish | Eza theme
+  ansible.builtin.get_url:
+    url: https://raw.githubusercontent.com/eza-community/eza-themes/refs/heads/main/themes/catppuccin.yml
+    dest: ~/.config/eza/theme.yml
+    mode: "0644"
+  become: true
+  become_user: "{{ configure_host_users_username }}"

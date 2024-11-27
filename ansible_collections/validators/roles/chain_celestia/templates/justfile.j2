@@ -1,0 +1,95 @@
+# use with https://github.com/casey/just
+#
+# Celestia validator operations
+#
+
+# Set the shell to bash with error handling
+# set shell := ["bash", "-euo", "pipefail"]
+
+# Default recipe to show available commands
+default:
+    @just --list
+
+# Variables
+validator_service := "celestia-app-{{ validator_celestia_network }}.service"
+bridge_service := "celestia-bridge-{{ validator_celestia_network }}.service"
+log_lines := "100"
+
+# Start celestia-app-{{ validator_celestia_network }} systemd service
+start-app:
+    @echo "Starting celestia-app-{{ validator_celestia_network }}..."
+{% raw %}
+    sudo /usr/bin/systemctl start {{ validator_service }}
+{% endraw %}
+    @sleep 2
+    @just status-app
+
+# Stop celestia-app-{{ validator_celestia_network }} systemd service
+stop-app:
+    @echo "Stopping celestia-app-{{ validator_celestia_network }}..."
+{% raw %}
+    sudo /usr/bin/systemctl stop {{ validator_service }}
+{% endraw %}
+    @sleep 2
+    @just status-app
+
+# Restart celestia-app-{{ validator_celestia_network }} systemd service
+restart-app:
+    @echo "Restarting celestia-app-{{ validator_celestia_network }}..."
+{% raw %}
+    sudo /usr/bin/systemctl restart {{ validator_service }}
+{% endraw %}
+    @sleep 2
+    @just status-app
+
+# Check celestia-app-{{ validator_celestia_network }} systemd service status
+status-app:
+    @echo "celestia-app-{{ validator_celestia_network }} status:"
+{% raw %}
+    sudo /usr/bin/systemctl status {{ validator_service }}
+{% endraw %}
+
+# Consult celestia-app-{{ validator_celestia_network }} systemd service logs
+logs-app:
+{% raw %}
+    journalctl --unit={{ validator_service }} --follow
+{% endraw %}
+
+# Start celestia-bridge-{{ validator_celestia_network }} systemd service
+start-bridge:
+    @echo "Starting celestia-bridge-{{ validator_celestia_network }}..."
+{% raw %}
+    sudo /usr/bin/systemctl start {{ bridge_service }}
+{% endraw %}
+    @sleep 2
+    @just status-bridge
+
+# Stop celestia-bridge-{{ validator_celestia_network }} systemd service
+stop-bridge:
+    @echo "Stopping celestia-bridge-{{ validator_celestia_network }}..."
+{% raw %}
+    sudo /usr/bin/systemctl stop {{ bridge_service }}
+{% endraw %}
+    @sleep 2
+    @just status-bridge
+# Restart celestia-bridge-{{ validator_celestia_network }} systemd service
+restart-bridge:
+    @echo "Restarting celestia-bridge-{{ validator_celestia_network }}..."
+{% raw %}
+    sudo /usr/bin/systemctl restart {{ bridge_service }}
+{% endraw %}
+    @sleep 2
+    @just status-bridge
+
+# Check celestia-bridge-{{ validator_celestia_network }} systemd service status
+status-bridge:
+    @echo "celestia-bridge-{{ validator_celestia_network }} status:"
+{% raw %}
+    sudo /usr/bin/systemctl status {{ bridge_service }}
+{% endraw %}
+
+# Consult celestia-bridge-{{ validator_celestia_network }} systemd service logs
+logs-bridge:
+{% raw %}
+    journalctl --unit={{ bridge_service }} --follow
+{% endraw %}

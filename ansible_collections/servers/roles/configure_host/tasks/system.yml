@@ -1,0 +1,40 @@
+---
+
+- name: Set facts
+  ansible.builtin.set_fact:
+    fqdn_custom: "{{ ansible_host }}.{{ public_domain }}"
+
+- name: Get hostname
+  ansible.builtin.command: hostname
+  register: current_hostname
+  changed_when: false
+
+- name: Set hostname
+  when: current_hostname.stdout != fqdn_custom
+  ansible.builtin.shell:
+    cmd: |
+      hostnamectl set-hostname {{ fqdn_custom }}
+      hostnamectl set-hostname "{{ inventory_hostname }}" --pretty
+      hostnamectl set-hostname {{ fqdn_custom }} --static
+      hostnamectl set-hostname {{ fqdn_custom }} --transient
+  changed_when: true
+
+- name: Set timezone to UTC
+  community.general.timezone:
+    name: UTC
+
+- name: Disable Password Authentication
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: ^#?PasswordAuthentication
+    line: PasswordAuthentication no
+    state: present
+  notify: Restart sshd
+
+- name: Ensure ChallengeResponseAuthentication is disabled
+  ansible.builtin.lineinfile:
+    path: /etc/ssh/sshd_config
+    regexp: ^#?ChallengeResponseAuthentication
+    line: ChallengeResponseAuthentication no
+    state: present
+  notify: Restart sshd

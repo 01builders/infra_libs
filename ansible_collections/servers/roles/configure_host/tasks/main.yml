@@ -1,0 +1,24 @@
+---
+- name: Set architecture variable
+  ansible.builtin.set_fact:
+    local_arch: "{{ 'amd64' if ansible_architecture == 'x86_64' else 'arm64' if ansible_architecture == 'aarch64' else ansible_architecture }}"
+
+- name: Podman
+  ansible.builtin.include_tasks: podman.yml
+
+- name: Packages
+  ansible.builtin.include_tasks: packages.yml
+
+- name: Firewall
+  ansible.builtin.include_tasks: firewall.yml
+
+- name: System
+  ansible.builtin.include_tasks: system.yml
+
+- name: Shell
+  ansible.builtin.include_tasks: shell.yml
+  tags:
+    - shell
+
+- name: Users
+  ansible.builtin.include_tasks: users.yml

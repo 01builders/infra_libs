@@ -1,0 +1,139 @@
+---
+- name: Cosmos-validator-watcher
+  block:
+    - name: Cosmos-validator-watcher| Reload containers if necessary | {{ item.name | replace('-node', '') }}
+      ansible.builtin.meta: flush_handlers
+
+    - name: Cosmos-validator-watcher | Set tendermint subcommand | {{ item.name | replace('-node', '') }}
+      when: "'v2' in cosmos_testnet_container_name"
+      ansible.builtin.set_fact:
+        subcommand: comet
+
+    - name: Cosmos-validator-watcher | Set tendermint subcommand | {{ item.name | replace('-node', '') }}
+      when: not 'v2' in cosmos_testnet_container_name
+      ansible.builtin.set_fact:
+        subcommand: tendermint
+
+    - name: Cosmos-validator-watcher | Get validator infos | {{ item.name | replace('-node', '') }}
+      containers.podman.podman_container_exec:
+        name: "{{ cosmos_testnet_container_name }}"
+        command: /app/node {{ subcommand }} show-validator --home /config
+        workdir: /app
+      register: validator_infos
+      changed_when: false
+
+    - name: Cosmos-validator-watcher | Get validator pubkey | {{ item.name | replace('-node', '') }}
+      containers.podman.podman_container_exec:
+        name: "{{ cosmos_testnet_container_name }}"
+        command: /app/node debug pubkey '{{ validator_infos.stdout }}' --home /config
+        workdir: /app
+      register: validator_pubkey
+      changed_when: false
+
+    - name: Cosmos-validator-watcher | Set fact clean_validator_pubkey | {{ item.name | replace('-node', '') }}
+      ansible.builtin.set_fact:
+        clean_validator_pubkey: "{{ validator_pubkey.stdout | regex_search('Address: ([A-F0-9]+)', '\\1') | first }}"
+
+    - name: Cosmos-validator-watcher | Set fact quadlet_command
+      ansible.builtin.set_fact:
+        quadlet_command:
+          - --http-addr :{{ cosmos_testnet_container_watcher_port }}
+          - --node http://localhost:26657
+          - --validator {{ clean_validator_pubkey }}:testnet-{{ cosmos_testnet_container_name | replace('-node', '') }}
+
+    - name: Cosmos-validator-watcher | Quadlet pod file | {{ item.name | replace('-node', '') }}
+      containers.podman.podman_container:
+        name: cosmos-validator-watcher-{{ cosmos_testnet_container_name | replace('-node', '') }}
+        image: ghcr.io/kilnfi/cosmos-validator-watcher:v0.13.0@sha256:0d09fae2e0a7d6fa75d63e95f924d17edcdadaaed3b747111e173d6d721ec3c4
+        state: quadlet
+        pod: "{{ cosmos_testnet_container_name }}"
+        command: "{{ quadlet_command }}"
+        ports:
+          - "{{ cosmos_testnet_container_watcher_port }}:{{ cosmos_testnet_container_watcher_port }}"
+        label:
+          app: cosmos-validator-watcher-{{ cosmos_testnet_container_name | replace('-node', '') }}
+        quadlet_options:
+          - |
+
+            [Unit]
+            Description=cosmos-validator-watcher for {{ cosmos_testnet_container_name | replace('-node', '') }}
+            After=network-online.target
+            Wants=network-online.target
+
+            [Service]
+            Restart=always
+            RestartSec=3
+            TimeoutStartSec=900
+
+            [Install]
+            WantedBy=default.target
+      notify: Restart cosmos-validator-watcher-{{ cosmos_testnet_container_name | replace('-node', '') }}
+
+
+    - name: Cosmos-validator-watcher | Quadlet container file | {{ item.name | replace('-node', '') }}
+      containers.podman.podman_container:
+        name: cosmos-validator-watcher-{{ cosmos_testnet_container_name | replace('-node', '') }}
+        image: ghcr.io/kilnfi/cosmos-validator-watcher:v0.13.0@sha256:0d09fae2e0a7d6fa75d63e95f924d17edcdadaaed3b747111e173d6d721ec3c4
+        state: quadlet
+        pod: "{{ cosmos_testnet_container_name }}"
+        command: "{{ quadlet_command }}"
+        ports:
+          - "{{ cosmos_testnet_container_watcher_port }}:{{ cosmos_testnet_container_watcher_port }}"
+        label:
+          app: cosmos-validator-watcher-{{ cosmos_testnet_container_name | replace('-node', '') }}
+        quadlet_options:
+          - |
+
+            [Unit]
+            Description=cosmos-validator-watcher for {{ cosmos_testnet_container_name | replace('-node', '') }}
+            After=network-online.target
+            Wants=network-online.target
+
+            [Service]
+            Restart=always
+            RestartSec=3
+            TimeoutStartSec=900
+
+            [Install]
+            WantedBy=default.target
+      notify: Restart cosmos-validator-watcher-{{ cosmos_testnet_container_name | replace('-node', '') }}
+
+    - name: Cosmos-validator-watcher | Enable systemd service | {{ item.name | replace('-node', '') }}
+      ansible.builtin.systemd:
+        name: cosmos-validator-watcher-{{ cosmos_testnet_container_name | replace('-node', '') }}
+        enabled: true
+        state: started
+        daemon_reload: true
+
+    - name: Alloy | Edit configuration
+      ansible.builtin.blockinfile:
+        path: "{{ validator_observability_alloy_config_path }}/config.alloy"
+        marker: /// {mark} ANSIBLE MANAGED BLOCK - cosmos_sdk_testnet_{{ item.name | replace('-node', '') }}
+        append_newline: true
+        block: |
+          prometheus.scrape "cosmos_sdk_testnet_{{ item.name | replace('-node', '') | replace('-', '_') }}" {
+            clustering {
+              enabled = true
+            }
+            targets = [{
+              __address__ = "{{ ansible_hostname }}:{{ cosmos_testnet_container_watcher_port }}",
+            }]
+            forward_to      = [prometheus.remote_write.victoriametrics.receiver]
+          }
+
+      notify: Restart alloy
+
+  rescue:
+    - name: Healthchecks.io | Send a fail signal
+      when: semaphore_scheduled is defined and semaphore_scheduled | bool
+      community.healthchecksio.ping:
+        state: present
+        uuid: "{{ cosmos_testnet_healthchecks_uuid }}"
+        signal: fail
+        api_key: "{{ healthchecksio_api_key }}"
+      changed_when: false
+
+    - name: Something went wrong
+      ansible.builtin.fail:
+        msg: An error occured
+      when: not ansible_check_mode

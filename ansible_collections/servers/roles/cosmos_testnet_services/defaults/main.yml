@@ -1,0 +1,3 @@
+---
+cosmos_testnet_services_config_path: /root/.local/share/faucet
+cosmos_testnet_services_config_dir: /mnt/container-volumes/

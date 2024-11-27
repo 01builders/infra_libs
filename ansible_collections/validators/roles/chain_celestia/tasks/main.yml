@@ -1,0 +1,80 @@
+---
+- name: Install required packages
+  ansible.builtin.apt:
+    name:
+      - aria2
+      - build-essential
+      - git
+      - make
+      - lz4
+      - gcc
+    state: present
+
+- name: Create user
+  ansible.builtin.user:
+    name: "{{ chain_celestia_user }}"
+    group: users
+    system: true
+    create_home: true
+    state: present
+
+- name: Add user to systemd-journal group
+  ansible.builtin.user:
+    name: "{{ chain_celestia_user }}"
+    groups: systemd-journal
+    append: true
+
+- name: Create directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    recurse: true
+    mode: "0700"
+    owner: "{{ chain_celestia_user }}"
+    group: users
+  loop:
+    - "/home/{{ chain_celestia_user }}/go/bin"
+
+- name: Install Go
+  ansible.builtin.include_role:
+    name: install_go
+
+- name: Celestia-appd
+  ansible.builtin.include_tasks: celestia-appd.yml
+  when: chain_celestia_appd is defined and chain_celestia_appd | bool
+  tags:
+    - celestia-bridge
+
+- name: Celestia-bridge
+  ansible.builtin.include_tasks: celestia-bridge.yml
+  when: chain_celestia_bridge is defined and chain_celestia_bridge | bool
+  tags:
+    - celestia-bridge
+
+- name: Celestia-da-otel-collector
+  ansible.builtin.include_tasks: celestia-da-otel-collector.yml
+  when: chain_celestia_bridge is defined and chain_celestia_bridge | bool
+  tags:
+    - celestia-da-otel-collector
+
+- name: Cosmos-validator-watcher
+  ansible.builtin.include_tasks: cosmos-validator-watcher.yml
+  tags:
+    - cosmos-validator-watcher
+
+- name: Validator-observability
+  ansible.builtin.include_role:
+    name: binarybuilders.chain_celestia.observability
+  vars:
+    observability_alerts: "{{ chain_celestia_alerts }}"
+    observability_chain_id: "{{ chain_celestia_chain_id }}"
+    observability_prometheus_sdk_prometheus_port: "{{ chain_celestia_appd_prometheus_port }}"
+    observability_prometheus_watcher_prometheus_port: "{{ chain_celestia_watcher_prometheus_port }}"
+
+- name: Deploy justfile
+  ansible.builtin.template:
+    src: justfile.j2
+    dest: /home/{{ chain_celestia_user }}/justfile
+    owner: "{{ chain_celestia_user }}"
+    group: users
+    mode: "0644"

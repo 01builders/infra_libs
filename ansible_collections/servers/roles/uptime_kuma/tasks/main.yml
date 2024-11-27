@@ -1,0 +1,50 @@
+---
+- name: Quadlet volume file
+  containers.podman.podman_volume:
+    name: uptime-kuma
+    state: quadlet
+    label:
+      app: uptime-kuma
+  notify: Restart Uptime kuma
+
+- name: Quadlet container file
+  containers.podman.podman_container:
+    name: uptime-kuma
+    image: "{{ uptime_kuma_image }}"
+    state: quadlet
+    network: host
+    volumes:
+      - uptime-kuma.volume:/app/data:bind
+    label:
+      app: uptime-kuma
+      traefik.enable: true
+      traefik.http.routers.uptime-kuma.rule: Host'(`status.{{ public_domain }}`)'
+      traefik.http.routers.uptime-kuma.entrypoints: websecure
+      traefik.http.routers.uptime-kuma.tls: true
+      traefik.http.routers.uptime-kuma.tls.certresolver: letsencryptProduction
+      traefik.http.routers.uptime-kuma.tls.domains[0].main: "{{ public_domain }}"
+      traefik.http.routers.uptime-kuma.tls.domains[0].sans: "*.{{ public_domain }}"
+      traefik.http.services.uptime-kuma.loadbalancer.server.port: 3001
+    quadlet_options:
+      - |
+
+        [Unit]
+        Description=uptime-kuma
+        After=network-online.target
+        Wants=network-online.target
+
+        [Service]
+        Restart=always
+        RestartSec=3
+        TimeoutStartSec=900
+
+        [Install]
+        WantedBy=default.target
+  notify: Restart Uptime kuma
+
+- name: Enable systemd service
+  ansible.builtin.systemd:
+    name: uptime-kuma
+    enabled: true
+    state: started
+    daemon_reload: true

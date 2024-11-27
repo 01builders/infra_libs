@@ -1,0 +1,103 @@
+---
+- name: Quadlet volume files
+  containers.podman.podman_volume:
+    name: "{{ item }}"
+    state: quadlet
+    label:
+      app: "{{ item }}"
+  loop:
+    - semaphoreui
+    - semaphoreui-db
+  notify: Restart Semaphoreui
+
+- name: Quadlet semaphoreui-db container file
+  containers.podman.podman_container:
+    name: semaphoreui-db
+    image: "{{ semaphoreui_db_image }}"
+    state: quadlet
+    env:
+      MYSQL_RANDOM_ROOT_PASSWORD: "yes"
+      MYSQL_DATABASE: semaphore
+      MYSQL_USER: "{{ semaphore_db_user }}"
+      MYSQL_PASSWORD: "{{ semaphore_db_password }}"
+    ports:
+      - 3306:3306
+    volumes:
+      - semaphoreui-db.volume:/var/lib/mysql
+    label:
+      app: semaphoreui
+    quadlet_options:
+      - |
+
+        [Unit]
+        Description=MySQL db for Semaphore UI
+        After=network-online.target
+        Wants=network-online.target
+
+        [Service]
+        Restart=always
+        RestartSec=3
+        TimeoutStartSec=900
+
+        [Install]
+        WantedBy=default.target
+  notify: Restart Semaphoreui
+
+- name: Quadlet semaphoreui-db container file
+  containers.podman.podman_container:
+    name: semaphoreui
+    image: "{{ semaphoreui_image }}"
+    state: quadlet
+    env:
+      TZ: UTC
+      SEMAPHORE_DB_HOST: host.containers.internal
+      SEMAPHORE_DB_PORT: 3306
+      SEMAPHORE_DB_DIALECT: mysql
+      SEMAPHORE_DB: semaphore
+      SEMAPHORE_DB_USER: "{{ semaphore_db_user }}"
+      SEMAPHORE_DB_PASSWORD: "{{ semaphore_db_password }}"
+      SEMAPHORE_PLAYBOOK_PATH: /mnt/playbooks/
+      SEMAPHORE_ADMIN_EMAIL: admin@localhost
+      SEMAPHORE_ADMIN: admin
+      SEMAPHORE_ADMIN_PASSWORD: "{{ semaphore_admin_password }}"
+      SEMAPHORE_ACCESS_KEY_ENCRYPTION: "{{ semaphore_access_key_encryption }}"
+    network: host
+    volumes:
+      - semaphoreui.volume:/mnt/playbooks
+    label:
+      app: semaphoreui
+      traefik.enable: true
+      traefik.http.routers.semaphoreui.rule: Host'(`deploy.{{ public_domain }}`)'
+      traefik.http.routers.semaphoreui.entrypoints: websecure
+      traefik.http.routers.semaphoreui.tls: true
+      traefik.http.routers.semaphoreui.tls.certresolver: letsencryptProduction
+      traefik.http.routers.semaphoreui.tls.domains[0].main: "{{ public_domain }}"
+      traefik.http.routers.semaphoreui.tls.domains[0].sans: "*.{{ public_domain }}"
+      traefik.http.services.semaphoreui.loadbalancer.server.port: 3000
+    quadlet_options:
+      - |
+
+        [Unit]
+        Description=Semaphore UI (Tasks manager for DevOps teams)
+        After=network-online.target
+        Wants=network-online.target
+
+        [Service]
+        Restart=always
+        RestartSec=3
+        TimeoutStartSec=900
+
+        [Install]
+        WantedBy=default.target
+  notify: Restart Semaphoreui
+
+
+- name: Enable systemd service
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+  loop:
+    - semaphoreui
+    - semaphoreui-db

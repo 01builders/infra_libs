@@ -1,0 +1,39 @@
+---
+- name: Quadlet container file
+  containers.podman.podman_container:
+    name: ping-dashboard
+    image: ghcr.io/01builders/ping-dashboard:rolling@sha256:c71a727fd1743eb17311bf86bbfdb0e04bfff58b4f26da2f5b253a1c9624e410
+    state: quadlet
+    label:
+      app: ping-dashboard
+      traefik.enable: "true"
+      traefik.http.routers.ping-dashboard.rule: Host'(`explorer-testnet.{{ public_domain }}`)'
+      traefik.http.routers.ping-dashboard.entrypoints: websecure
+      traefik.http.routers.ping-dashboard.tls: "true"
+      traefik.http.routers.ping-dashboard.tls.certresolver: letsencryptProduction
+      traefik.http.routers.ping-dashboard.tls.domains[0].main: "{{ public_domain }}"
+      traefik.http.routers.ping-dashboard.tls.domains[0].sans: "*.{{ public_domain }}"
+      traefik.http.services.ping-dashboard.loadbalancer.server.port: 8080
+    quadlet_options:
+      - |
+
+        [Unit]
+        Description=ping-dashboard
+        After=network-online.target
+        Wants=network-online.target
+
+        [Service]
+        Restart=always
+        RestartSec=3
+        TimeoutStartSec=900
+
+        [Install]
+        WantedBy=default.target
+  notify: Restart Ping-dashboard
+
+- name: Enable systemd service
+  ansible.builtin.systemd:
+    name: ping-dashboard
+    enabled: true
+    state: started
+    daemon_reload: true

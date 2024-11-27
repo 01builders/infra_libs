@@ -1,0 +1,131 @@
+groups:
+  # https://github.com/VictoriaMetrics/VictoriaMetrics/blob/master/deployment/docker/rules/alerts.yml
+  #
+  # Alerts group for VM single assumes that Grafana dashboard
+  # https://grafana.com/grafana/dashboards/10229 is installed.
+  - name: vmsingle
+    interval: 30s
+    concurrency: 2
+    rules:
+      - alert: DiskRunsOutOfSpaceIn60Days
+        expr: |
+          vm_free_disk_space_bytes / ignoring(path)
+          (
+            rate(vm_rows_added_to_storage_total[1d])
+            * scalar(
+              sum(vm_data_size_bytes{type!~"indexdb.*"}) /
+              sum(vm_rows{type!~"indexdb.*"})
+            )
+          ) < 60 * 24 * 3600 > 0
+        for: 30m
+        labels:
+          severity: critical
+        annotations:
+          dashboard: "https://grafana.{{ public_domain }}/d/wNf0q_kZk?viewPanel=73&var-instance={% raw %}{{ $labels.instance }}{% endraw %}"
+          summary: "Instance {% raw %}{{ $labels.instance }}{% endraw %} will run out of disk space soon"
+          description: "Taking into account current ingestion rate, free disk space will be enough only
+            for {% raw %}{{ $value | humanizeDuration }}{% endraw %} on instance {% raw %}{{ $labels.instance }}{% endraw %}.\n
+            Consider to limit the ingestion rate, decrease retention or scale the disk space if possible."
+
+      - alert: DiskRunsOutOfSpace
+        expr: |
+          sum(vm_data_size_bytes) by(job, instance) /
+          (
+            sum(vm_free_disk_space_bytes) by(job, instance) +
+            sum(vm_data_size_bytes) by(job, instance)
+          ) > 0.8
+        for: 30m
+        labels:
+          severity: critical
+        annotations:
+          dashboard: "https://grafana.{{ public_domain }}/d/wNf0q_kZk?viewPanel=53&var-instance={% raw %}{{ $labels.instance }}{% endraw %}"
+          summary: "Instance {% raw %}{{ $labels.instance }}{% endraw %} (job={% raw %}{{ $labels.job }}{% endraw %}) will run out of disk space soon"
+          description: "Disk utilisation on instance {% raw %}{{ $labels.instance }}{% endraw %} is more than 80%.\n
+            Having less than 20% of free disk space could cripple merge processes and overall performance.
+            Consider to limit the ingestion rate, decrease retention or scale the disk space if possible."
+
+      - alert: RequestErrorsToAPI
+        expr: increase(vm_http_request_errors_total[5m]) > 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          dashboard: "https://grafana.{{ public_domain }}/d/wNf0q_kZk?viewPanel=35&var-instance={% raw %}{{ $labels.instance }}{% endraw %}"
+          summary: "Too many errors served for path {% raw %}{{ $labels.path }}{% endraw %} (instance {% raw %}{{ $labels.instance }}{% endraw %})"
+          description: "Requests to path {% raw %}{{ $labels.path }}{% endraw %} are receiving errors.
+            Please verify if clients are sending correct requests."
+
+      - alert: RowsRejectedOnIngestion
+        expr: rate(vm_rows_ignored_total[5m]) > 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          dashboard: "https://grafana.{{ public_domain }}/d/wNf0q_kZk?viewPanel=58&var-instance={% raw %}{{ $labels.instance }}{% endraw %}"
+          summary: "Some rows are rejected on \"{% raw %}{{ $labels.instance }}{% endraw %}\" on ingestion attempt"
+          description: "VM is rejecting to ingest rows on \"{% raw %}{{ $labels.instance }}{% endraw %}\" due to the
+            following reason: \"{% raw %}{{ $labels.reason }}{% endraw %}\""
+
+      - alert: TooHighChurnRate
+        expr: |
+          (
+            sum(rate(vm_new_timeseries_created_total[5m])) by(instance)
+            /
+            sum(rate(vm_rows_inserted_total[5m])) by (instance)
+          ) > 0.1
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          dashboard: "https://grafana.{{ public_domain }}/d/wNf0q_kZk?viewPanel=66&var-instance={% raw %}{{ $labels.instance }}{% endraw %}"
+          summary: "Churn rate is more than 10% on \"{% raw %}{{ $labels.instance }}{% endraw %}\" for the last 15m"
+          description: "VM constantly creates new time series on \"{% raw %}{{ $labels.instance }}{% endraw %}\".\n
+            This effect is known as Churn Rate.\n
+            High Churn Rate tightly connected with database performance and may
+            result in unexpected OOM's or slow queries."
+
+      - alert: TooHighChurnRate24h
+        expr: |
+          sum(increase(vm_new_timeseries_created_total[24h])) by(instance)
+          >
+          (sum(vm_cache_entries{type="storage/hour_metric_ids"}) by(instance) * 3)
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          dashboard: "https://grafana.{{ public_domain }}/d/wNf0q_kZk?viewPanel=66&var-instance={% raw %}{{ $labels.instance }}{% endraw %}"
+          summary: "Too high number of new series on \"{% raw %}{{ $labels.instance }}{% endraw %}\" created over last 24h"
+          description: "The number of created new time series over last 24h is 3x times higher than
+            current number of active series on \"{% raw %}{{ $labels.instance }}{% endraw %}\".\n
+            This effect is known as Churn Rate.\n
+            High Churn Rate tightly connected with database performance and may
+            result in unexpected OOM's or slow queries."
+
+      - alert: TooHighSlowInsertsRate
+        expr: |
+          (
+            sum(rate(vm_slow_row_inserts_total[5m])) by(instance)
+            /
+            sum(rate(vm_rows_inserted_total[5m])) by (instance)
+          ) > 0.05
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          dashboard: "https://grafana.{{ public_domain }}/d/wNf0q_kZk?viewPanel=68&var-instance={% raw %}{{ $labels.instance }}{% endraw %}"
+          summary: "Percentage of slow inserts is more than 5% on \"{% raw %}{{ $labels.instance }}{% endraw %}\" for the last 15m"
+          description: "High rate of slow inserts on \"{% raw %}{{ $labels.instance }}{% endraw %}\" may be a sign of resource exhaustion
+            for the current load. It is likely more RAM is needed for optimal handling of the current number of active time series.
+            See also https://github.com/VictoriaMetrics/VictoriaMetrics/issues/3976#issuecomment-1476883183"
+
+      - alert: LabelsLimitExceededOnIngestion
+        expr: increase(vm_metrics_with_dropped_labels_total[5m]) > 0
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          dashboard: "https://grafana.{{ public_domain }}/d/wNf0q_kZk?viewPanel=74&var-instance={% raw %}{{ $labels.instance }}{% endraw %}"
+          summary: "Metrics ingested in ({% raw %}{{ $labels.instance }}{% endraw %}) are exceeding labels limit"
+          description: "VictoriaMetrics limits the number of labels per each metric with `-maxLabelsPerTimeseries` command-line flag.\n
+            This prevents ingestion of metrics with too many labels. Please verify that `-maxLabelsPerTimeseries` is configured
+            correctly or that clients which send these metrics aren't misbehaving."

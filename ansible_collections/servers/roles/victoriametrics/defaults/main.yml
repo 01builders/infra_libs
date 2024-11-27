@@ -1,0 +1,4 @@
+---
+victoriametrics_alertmanager_config_path: /root/.local/share/alertmanager
+victoriametrics_alloy_config_path: /root/.local/share/alloy
+victoriametrics_vmalert_config_path: /root/.local/share/vmalert

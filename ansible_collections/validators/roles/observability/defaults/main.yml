@@ -1,0 +1,3 @@
+---
+observability_alloy_config_path: /root/.local/share/alloy
+observability_vmalert_config_path: /root/.local/share/vmalert

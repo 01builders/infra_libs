@@ -1,0 +1,89 @@
+---
+- name: Packages
+  ansible.builtin.apt:
+    name:
+      - bat
+      - btop
+      - curl
+      - duf
+      - eza
+      - fd-find
+      - fish
+      - fzf
+      - just
+      - unzip
+      - zoxide
+    state: present
+    update_cache: true
+
+- name: Btop | Theme
+  ansible.builtin.get_url:
+    url: https://raw.githubusercontent.com/catppuccin/btop/refs/heads/main/themes/catppuccin_mocha.theme
+    dest: /usr/share/btop/themes/catppuccin_mocha.theme
+    mode: "0644"
+
+- name: Atuin
+  ansible.builtin.include_role:
+    name: wzzrd.atuin.atuin_client
+  vars:
+    atuin_client_version: "{{ configure_host_atuin_version }}"
+
+- name: Starship.rs
+  ansible.builtin.include_role:
+    name: rolehippie.starship
+
+- name: Dust | Check current version
+  ansible.builtin.shell: |
+    dust --version
+  args:
+    executable: /bin/bash
+  register: check_dust
+  failed_when: false
+  changed_when: false
+
+- name: Dust | Download
+  when: configure_host_dust_version not in check_dust.stdout
+  ansible.builtin.unarchive:
+    dest: /tmp
+    mode: "777"
+    remote_src: true
+    src: https://github.com/bootandy/dust/releases/download/v{{ configure_host_dust_version }}/dust-v{{ configure_host_dust_version }}-{{ ansible_architecture }}-unknown-linux-gnu.tar.gz
+
+- name: Dust | Install
+  when: configure_host_dust_version not in check_dust.stdout
+  ansible.builtin.copy:
+    dest: /usr/local/bin/dust
+    force: true
+    mode: "755"
+    remote_src: true
+    src: /tmp/dust-v{{ configure_host_dust_version }}-{{ ansible_architecture }}-unknown-linux-gnu/dust
+
+- name: Dysk | Check current version
+  ansible.builtin.shell: |
+    dysk --version
+  args:
+    executable: /bin/bash
+  register: check_dysk
+  failed_when: false
+  changed_when: false
+
+- name: Dysk | Set comparison string
+  ansible.builtin.set_fact:
+    dysk_version_compare: "{{ configure_host_dysk_version | replace('v', '') }}"
+
+- name: Dysk | Download
+  when: dysk_version_compare not in check_dysk.stdout
+  ansible.builtin.unarchive:
+    dest: /tmp
+    mode: "777"
+    remote_src: true
+    src: https://github.com/Canop/dysk/releases/download/{{ configure_host_dysk_version }}/dysk_{{ dysk_version_compare }}.zip
+
+- name: Dysk | Install
+  when: dysk_version_compare not in check_dysk.stdout
+  ansible.builtin.copy:
+    dest: /usr/local/bin/dysk
+    force: true
+    mode: "755"
+    remote_src: true
+    src: /tmp/build/{{ ansible_architecture }}-unknown-linux-gnu/dysk

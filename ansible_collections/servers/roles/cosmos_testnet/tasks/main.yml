@@ -1,0 +1,34 @@
+---
+- name: Quadlet
+  ansible.builtin.include_tasks: quadlet.yml
+
+- name: Reset state
+  when: not cosmos_testnet_container_longlived | bool
+  ansible.builtin.include_tasks: reset-state.yml
+
+- name: Configuration
+  ansible.builtin.include_tasks: configuration.yml
+
+- name: Update repository
+  when: not cosmos_testnet_container_longlived | bool
+  ansible.builtin.include_tasks: update-repository.yml
+
+# - name: Cosmos-validator-watcher
+#   ansible.builtin.include_tasks: cosmos-validator-watcher.yml
+
+- name: Firewall | Allow Incoming on public interface tcp/{{ cosmos_testnet_container_p2p_port }}
+  community.general.ufw:
+    rule: allow
+    interface: "{{ public_interface }}"
+    direction: in
+    port: "{{ cosmos_testnet_container_p2p_port }}"
+    proto: tcp
+
+- name: Firewall | Allow route forwarding to tcp/26656
+  community.general.ufw:
+    rule: allow
+    route: true
+    interface_in: "{{ public_interface }}"
+    port: 26656
+    proto: tcp
+    interface_out: podman0

@@ -1,0 +1,4 @@
+---
+configure_host_quadlet_dir: /usr/share/containers/systemd
+configure_host_quadlet_volumes_dir: /var/lib/containers/storage/volumes
+configure_host_quadlet_volumes_mountpoint: /mnt/container-volumes

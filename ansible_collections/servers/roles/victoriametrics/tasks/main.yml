@@ -1,0 +1,20 @@
+---
+- name: VictoriaMetrics
+  ansible.builtin.include_tasks: victoriametrics.yml
+  tags:
+    - victoriametrics
+
+- name: VMAlert
+  ansible.builtin.include_tasks: vmalert.yml
+  tags:
+    - vmalert
+
+- name: Alertmanager
+  ansible.builtin.include_tasks: alertmanager.yml
+  tags:
+    - alertmanager
+
+- name: VictoriaLogs
+  ansible.builtin.include_tasks: victorialogs.yml
+  tags:
+    - victorialogs

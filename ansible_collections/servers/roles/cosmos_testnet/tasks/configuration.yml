@@ -1,0 +1,114 @@
+---
+- name: Quadlet
+  block:
+    - name: Configuration | Check configuration file | {{ item.name | replace('-node', '') }}
+      ansible.builtin.stat:
+        path: "{{ cosmos_testnet_config_dir }}/config.toml"
+      register: file_status
+
+    - name: Configuration | Bootstrap node if configuration file does not exist | {{ item.name | replace('-node', '') }}
+      when: not file_status.stat.exists
+      block:
+        - name: Configuration | Start cosmos node
+          ansible.builtin.systemd_service:
+            name: "{{ cosmos_testnet_container_name }}"
+            daemon_reload: true
+            state: started
+
+        - name: Wait for container to be ready | {{ item.name | replace('-node', '') }}
+          ansible.builtin.pause:
+            seconds: 10
+      rescue:
+        - name: Something went wrong | {{ item.name | replace('-node', '') }}
+          ansible.builtin.fail:
+            msg: An error occured
+          when: not ansible_check_mode
+
+    - name: Enforce tendermint namespace for consistency | {{ item.name | replace('-node', '') }}
+      ansible.builtin.lineinfile:
+        path: "{{ cosmos_testnet_config_dir }}/config.toml"
+        regexp: namespace = "
+        line: namespace = "tendermint"
+        state: present
+      notify: Restart Cosmos node {{ cosmos_testnet_container_name }}
+
+    - name: Adjust Inbound Peers | {{ item.name | replace('-node', '') }}
+      ansible.builtin.lineinfile:
+        path: "{{ cosmos_testnet_config_dir }}/config.toml"
+        regexp: max_num_inbound_peers
+        line: max_num_inbound_peers = 80
+      notify: Restart Cosmos node {{ cosmos_testnet_container_name }}
+
+    - name: Adjust Outbound Peers | {{ item.name | replace('-node', '') }}
+      ansible.builtin.lineinfile:
+        path: "{{ cosmos_testnet_config_dir }}/config.toml"
+        regexp: max_num_outbound_peers
+        line: max_num_outbound_peers = 60
+      notify: Restart Cosmos node {{ cosmos_testnet_container_name }}
+
+    - name: Enable prometheus on the config.toml file | {{ item.name | replace('-node', '') }}
+      ansible.builtin.lineinfile:
+        path: "{{ cosmos_testnet_config_dir }}/config.toml"
+        regexp: ^prometheus =
+        line: prometheus = true
+        state: present
+      notify: Restart Cosmos node {{ cosmos_testnet_container_name }}
+
+    - name: Listen on 0.0.0.0 instead of localhost (RPC) | {{ item.name | replace('-node', '') }}
+      ansible.builtin.lineinfile:
+        path: "{{ cosmos_testnet_config_dir }}/config.toml"
+        regexp: laddr = "tcp://127.0.0.1:26657"
+        line: laddr = "tcp://0.0.0.0:26657"
+      notify: Restart Cosmos node {{ cosmos_testnet_container_name }}
+
+    - name: Listen on 0.0.0.0 instead of localhost (API) | {{ item.name | replace('-node', '') }}
+      when: cosmos_testnet_container_name != "v2-052-1-node"
+      ansible.builtin.lineinfile:
+        path: "{{ cosmos_testnet_config_dir }}/app.toml"
+        regexp: address = "tcp://localhost:1317"
+        line: address = "tcp://0.0.0.0:20017"
+      notify: Restart Cosmos node {{ cosmos_testnet_container_name }}
+
+    - name: Listen on 0.0.0.0 instead of localhost (gRPC) | {{ item.name | replace('-node', '') }}
+      ansible.builtin.lineinfile:
+        path: "{{ cosmos_testnet_config_dir }}/app.toml"
+        regexp: address = ([''"])(localhost:9090)([''"])
+        line: address = "0.0.0.0:9090"
+      notify: Restart Cosmos node {{ cosmos_testnet_container_name }}
+
+    - name: Listen on 0.0.0.0 instead of localhost (REST) | {{ item.name | replace('-node', '') }}
+      when: cosmos_testnet_container_name == "v2-052-1-node"
+      ansible.builtin.lineinfile:
+        path: "{{ cosmos_testnet_config_dir }}/app.toml"
+        regexp: address = ([''"])(localhost:8080)([''"])
+        line: address = "0.0.0.0:8080"
+      notify: Restart Cosmos node {{ cosmos_testnet_container_name }}
+
+    - name: Allow cross-domain requests | {{ item.name | replace('-node', '') }}
+      ansible.builtin.lineinfile:
+        path: "{{ cosmos_testnet_config_dir }}/config.toml"
+        regexp: ^cors_allowed_origins =
+        line: cors_allowed_origins = ["*"]
+      notify: Restart Cosmos node {{ cosmos_testnet_container_name }}
+
+    - name: Allow cross-domain requests | {{ item.name | replace('-node', '') }}
+      ansible.builtin.lineinfile:
+        path: "{{ cosmos_testnet_config_dir }}/config.toml"
+        regexp: ^cors_allowed_origins =
+        line: cors_allowed_origins = ["*"]
+      notify: Restart Cosmos node {{ cosmos_testnet_container_name }}
+
+  rescue:
+    - name: Healthchecks.io | Send a fail signal
+      when: semaphore_scheduled is defined and semaphore_scheduled | bool
+      community.healthchecksio.ping:
+        state: present
+        uuid: "{{ cosmos_testnet_healthchecks_uuid }}"
+        signal: fail
+        api_key: "{{ healthchecksio_api_key }}"
+      changed_when: false
+
+    - name: Something went wrong
+      ansible.builtin.fail:
+        msg: An error occured
+      when: not ansible_check_mode

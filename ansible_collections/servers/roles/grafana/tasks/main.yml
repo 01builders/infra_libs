@@ -1,0 +1,81 @@
+---
+- name: Create configuration directory
+  ansible.builtin.file:
+    path: "{{ grafana_config_path }}"
+    state: directory
+    mode: "0700"
+
+- name: Deploy configuration
+  ansible.builtin.template:
+    src: datasources.yml.j2
+    dest: "{{ grafana_config_path }}/datasources.yml"
+    mode: "0644"
+  notify: Restart Grafana
+
+- name: Quadlet volume file
+  containers.podman.podman_volume:
+    name: grafana
+    state: quadlet
+    label:
+      app: grafana
+  notify: Restart Grafana
+
+- name: Quadlet container file
+  containers.podman.podman_container:
+    name: grafana
+    image: "{{ grafana_image }}"
+    state: quadlet
+    volumes:
+      - grafana.volume:/var/lib/grafana:bind
+      - "{{ grafana_config_path }}/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yaml:ro"
+    env:
+      GF_AUTH_GOOGLE_ENABLED: "true"
+      GF_AUTH_GOOGLE_ALLOW_SIGN_UP: "true"
+      GF_AUTH_GOOGLE_AUTO_LOGIN: "true"
+      GF_AUTH_GOOGLE_CLIENT_ID: "{{ grafana_google_client_id }}"
+      GF_AUTH_GOOGLE_CLIENT_SECRET: "{{ grafana_google_client_secret }}"
+      GF_AUTH_GOOGLE_SCOPES: '"openid email profile"'
+      GF_AUTH_GOOGLE_AUTH_URL: https://accounts.google.com/o/oauth2/v2/auth
+      GF_AUTH_GOOGLE_TOKEN_URL: https://oauth2.googleapis.com/token
+      GF_AUTH_GOOGLE_API_URL: https://openidconnect.googleapis.com/v1/userinfo
+      GF_AUTH_GOOGLE_ALLOWED_DOMAINS: binary.builders
+      GF_AUTH_GOOGLE_USE_PKCE: "true"
+      GF_ALLOW_ASSIGN_GRAFANA_ADMIN: "true"
+      GF_AUTH_GOOGLE_SKIP_ORG_ROLE_SYNC: "false"
+      GF_AUTH_GOOGLE_ROLE_ATTRIBUTE_PATH: '"email==''claude@binary.builders'' && ''GrafanaAdmin'' || email==''marko@binary.builders'' && ''GrafanaAdmin'' || ''Viewer''"'
+      GF_SERVER_ROOT_URL: https://grafana.{{ public_domain }}
+      GF_INSTALL_PLUGINS: https://github.com/VictoriaMetrics/victoriametrics-datasource/releases/download/v0.10.1/victoriametrics-datasource-v0.10.1.zip;victoriametrics-datasource,https://github.com/VictoriaMetrics/victorialogs-datasource/releases/download/v0.6.1/victorialogs-datasource-v0.6.1.zip;victorialogs-datasource
+      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: victoriametrics-datasource,victorialogs-datasource
+    label:
+      app: grafana
+      traefik.enable: true
+      traefik.http.routers.grafana.rule: Host'(`grafana.{{ public_domain }}`)'
+      traefik.http.routers.grafana.entrypoints: websecure
+      traefik.http.routers.grafana.tls: true
+      traefik.http.routers.grafana.tls.certresolver: letsencryptProduction
+      traefik.http.routers.grafana.tls.domains[0].main: "{{ public_domain }}"
+      traefik.http.routers.grafana.tls.domains[0].sans: "*.{{ public_domain }}"
+      traefik.http.services.grafana.loadbalancer.server.port: 3000
+    quadlet_options:
+      - |
+
+        [Unit]
+        Description=grafana
+        After=network-online.target
+        Wants=network-online.target
+
+        [Service]
+        Restart=always
+        RestartSec=3
+        TimeoutStartSec=900
+
+        [Install]
+        WantedBy=default.target
+  notify: Restart Grafana
+
+- name: Enable systemd service
+  ansible.builtin.systemd:
+    name: grafana
+    enabled: true
+    state: started
+    daemon_reload: true
