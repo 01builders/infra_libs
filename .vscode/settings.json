@@ -1,0 +1,6 @@
+{
+    "files.associations": {
+        "**/.github/**/*.json5": "jsonc",
+        "**/*.yml": "ansible"
+    }
+}
