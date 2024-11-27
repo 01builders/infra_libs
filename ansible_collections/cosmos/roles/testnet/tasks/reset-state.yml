@@ -1,0 +1,46 @@
+---
+- name: Reset-state
+  block:
+    - name: Reset-state | Ensure that the container is stopped | {{ item.name | replace('-node', '') }}
+      ansible.builtin.systemd:
+        name: "{{ testnet_container_name }}"
+        state: stopped
+
+    - name: Reset-state | Destroy container volume content | {{ item.name | replace('-node', '') }}
+      ansible.builtin.file:
+        path: /mnt/container-volumes/{{ item.name }}/_data
+        state: absent
+      register: volume
+
+    - name: Reset-state | Re-create volume | {{ item.name | replace('-node', '') }}
+      ansible.builtin.file:
+        path: /mnt/container-volumes/{{ item.name }}/_data
+        state: directory
+        owner: 65532
+        mode: "0775"
+
+    - name: Reset-state | Ensure that the container is started | {{ item.name | replace('-node', '') }}
+      ansible.builtin.systemd:
+        name: "{{ testnet_container_name }}"
+        state: started
+
+    - name: Reset-state | Sleep for 15 seconds | {{ item.name | replace('-node', '') }}
+      when: volume.changed # noqa: no-handler
+      ansible.builtin.wait_for:
+        timeout: 15
+      delegate_to: localhost
+
+  rescue:
+    - name: Healthchecks.io | Send a fail signal
+      when: semaphore_scheduled is defined and semaphore_scheduled | bool
+      community.healthchecksio.ping:
+        state: present
+        uuid: "{{ testnet_healthchecks_uuid }}"
+        signal: fail
+        api_key: "{{ healthchecksio_api_key }}"
+      changed_when: false
+
+    - name: Something went wrong
+      ansible.builtin.fail:
+        msg: An error occured
+      when: not ansible_check_mode

@@ -1,0 +1,73 @@
+groups:
+  - name: Cosmos Validators - {{ observability_chain_id | replace('-', '_') }}
+    rules:
+
+    - alert: InstanceDown
+      # Condition for alerting
+      expr: up{job="prometheus.scrape.cosmos_sdk_{{ observability_chain_id | replace('-', '_') }}"} == 0 or up{job="prometheus.scrape.cosmos_validator_watcher_{{ observability_chain_id | replace('-', '_') }}"} == 0
+{% raw %}
+      for: 3m
+      # Annotation - additional informational labels to store more information
+      annotations:
+        title: 'Instance {{ $labels.instance }} down'
+        description: '{{ $labels.job }} on {{ $labels.instance }} has been down for more than 3 minutes'
+      # Labels - additional labels to be attached to the alert
+      labels:
+        severity: 'critical'
+        service: cosmos-sdk
+{% endraw %}
+
+    - alert: TooFewPeers
+      expr: tendermint_p2p_peers{chain_id="{{ observability_chain_id | replace('-', '_') }}"} < 2 or cometbft_p2p_peers{chain_id="{{ observability_chain_id | replace('-', '_') }}"} < 2
+{% raw %}
+      for: 5m
+      labels:
+        severity: major
+        service: cosmos-sdk
+      annotations:
+        description: 'P2P Peers on `{{ $labels.instance }}` is lower than threshold (current value: {{ $value }})'
+{% endraw %}
+
+    - alert: MissingBlocks
+      expr: increase(cosmos_validator_watcher_missed_blocks{chain_id="{{ observability_chain_id | replace('-', '_') }}"}[5m]) > 10
+{% raw %}
+      for: 5m
+      labels:
+        severity: major
+        service: cosmos-validator-watcher
+      annotations:
+        description: 'Validator `{{ $labels.moniker }}` is missing `{{ $value }}` blocks!'
+{% endraw %}
+
+    - alert: DegradedSyncing
+      expr: increase(tendermint_consensus_latest_block_height{chain_id="{{ observability_chain_id | replace('-', '_') }}"}[5m]) < 10 or increase(cometbft_consensus_latest_block_height{chain_id="{{ observability_chain_id | replace('-', '_') }}"}[5m]) < 10
+{% raw %}
+      for: 5m
+      labels:
+        severity: major
+        service: cosmos-sdk
+      annotations:
+        description: 'Degraded syncing performance - Job {{ $labels.job }} on {{ $labels.instance }}'
+{% endraw %}
+
+    - alert: LowInRank
+      expr: cosmos_validator_watcher_rank{chain_id="{{ observability_chain_id | replace('-', '_') }}"} > (count(cosmos_validator_watcher_active_set{chain_id="{{ observability_chain_id | replace('-', '_') }}"} == 1) - 10)
+{% raw %}
+      for: 5m
+      labels:
+        severity: major
+        service: cosmos-validator-watcher
+      annotations:
+        description: 'Your validator `{{ $labels.moniker }}` rank is `{{ $value }}`!'
+
+{% endraw %}
+    - alert: IsJailed
+      expr: cosmos_validator_watcher_is_jailed{chain_id="{{ observability_chain_id | replace('-', '_') }}"} == 1
+{% raw %}
+      for: 5m
+      labels:
+        severity: critical
+        service: cocosmos-validator-watcher
+      annotations:
+        description: 'Your validator `{{ $labels.moniker }}` is jailed! `{{ $value }}`!'
+{% endraw %}

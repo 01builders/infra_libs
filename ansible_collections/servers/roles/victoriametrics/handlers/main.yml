@@ -1,0 +1,30 @@
+---
+- name: Restart alertmanager
+  ansible.builtin.systemd_service:
+    name: alertmanager
+    daemon_reload: true
+    state: restarted
+
+- name: Restart victoriametrics
+  ansible.builtin.systemd_service:
+    name: victoriametrics
+    daemon_reload: true
+    state: restarted
+
+- name: Restart vmalert
+  ansible.builtin.systemd_service:
+    name: vmalert
+    daemon_reload: true
+    state: restarted
+
+- name: Restart alloy
+  ansible.builtin.systemd_service:
+    name: alloy
+    daemon_reload: true
+    state: restarted
+
+- name: Restart victorialogs
+  ansible.builtin.systemd_service:
+    name: victorialogs
+    daemon_reload: true
+    state: restarted

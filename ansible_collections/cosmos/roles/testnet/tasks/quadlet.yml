@@ -1,0 +1,165 @@
+---
+- name: Quadlet
+  block:
+    - name: Quadlet volume file | {{ item.name | replace('-node', '') }}
+      containers.podman.podman_volume:
+        name: "{{ testnet_container_name }}"
+        state: quadlet
+        label:
+          app: "{{ testnet_container_name }}"
+      notify: Restart Cosmos node {{ testnet_container_name }}
+
+    - name: Set quadlet container labels | {{ item.name | replace('-node', '') }}
+      ansible.builtin.set_fact:
+        traefik_labels:
+          - key: traefik.enable
+            value: "true"
+          - key: traefik.http.middlewares.{{ testnet_container_name }}-headers.headers.accesscontrolalloworiginlist
+            value: "*"
+          # Here, an average of 5 requests per second is allowed.
+          - key: traefik.http.middlewares.ratelimit.ratelimit.average
+            value: "5"
+          # In addition, a burst of 10 requests is allowed.
+          - key: traefik.http.middlewares.ratelimit.ratelimit.burst
+            value: "10"
+          - key: traefik.http.routers.{{ testnet_container_name }}.rule
+            value: Host'(`{{ testnet_container_name | replace('-node', '') }}-testnet-api.{{ public_domain }}`)'
+          - key: traefik.http.routers.{{ testnet_container_name }}.entrypoints
+            value: websecure
+          - key: traefik.http.routers.{{ testnet_container_name }}.tls
+            value: "true"
+          - key: traefik.http.routers.{{ testnet_container_name }}.tls.certresolver
+            value: letsencryptProduction
+          - key: traefik.http.routers.{{ testnet_container_name }}.tls.domains[0].main
+            value: "{{ public_domain }}"
+          - key: traefik.http.routers.{{ testnet_container_name }}.tls.domains[0].sans
+            value: "*.{{ public_domain }}"
+          - key: traefik.http.routers.{{ testnet_container_name }}.middlewares
+            value: "{{ testnet_container_name }}-headers@docker,ratelimit"
+          - key: traefik.http.routers.{{ testnet_container_name }}.service
+            value: "{{ testnet_container_name }}"
+          - key: traefik.http.services.{{ testnet_container_name }}.loadbalancer.server.port
+            value: 20017
+          - key: traefik.http.routers.{{ testnet_container_name }}-grpc.rule
+            value: Host'(`{{ testnet_container_name | replace('-node', '') }}-testnet-grpc.{{ public_domain }}`)'
+          - key: traefik.http.routers.{{ testnet_container_name }}-grpc.entrypoints
+            value: websecure
+          - key: traefik.http.routers.{{ testnet_container_name }}-grpc.tls
+            value: "true"
+          - key: traefik.http.routers.{{ testnet_container_name }}-grpc.tls.certresolver
+            value: letsencryptProduction
+          - key: traefik.http.routers.{{ testnet_container_name }}-grpc.tls.domains[0].main
+            value: "{{ public_domain }}"
+          - key: traefik.http.routers.{{ testnet_container_name }}-grpc.tls.domains[0].sans
+            value: "*.{{ public_domain }}"
+          - key: traefik.http.routers.{{ testnet_container_name }}-grpc.middlewares
+            value: "{{ testnet_container_name }}-headers@docker,ratelimit"
+          - key: traefik.http.routers.{{ testnet_container_name }}-grpc.service
+            value: "{{ testnet_container_name }}-grpc"
+          - key: traefik.http.services.{{ testnet_container_name }}-grpc.loadbalancer.server.scheme
+            value: h2c
+          - key: traefik.http.services.{{ testnet_container_name }}-grpc.loadbalancer.server.port
+            value: 9090
+          - key: traefik.http.routers.{{ testnet_container_name }}-rest.rule
+            value: Host'(`{{ testnet_container_name | replace('-node', '') }}-testnet-rest.{{ public_domain }}`)'
+          - key: traefik.http.routers.{{ testnet_container_name }}-rest.entrypoints
+            value: websecure
+          - key: traefik.http.routers.{{ testnet_container_name }}-rest.tls
+            value: "true"
+          - key: traefik.http.routers.{{ testnet_container_name }}-rest.tls.certresolver
+            value: letsencryptProduction
+          - key: traefik.http.routers.{{ testnet_container_name }}-rest.tls.domains[0].main
+            value: "{{ public_domain }}"
+          - key: traefik.http.routers.{{ testnet_container_name }}-rest.tls.domains[0].sans
+            value: "*.{{ public_domain }}"
+          - key: traefik.http.routers.{{ testnet_container_name }}-rest.middlewares
+            value: "{{ testnet_container_name }}-headers@docker,ratelimit"
+          - key: traefik.http.routers.{{ testnet_container_name }}-rest.service
+            value: "{{ testnet_container_name }}-rest"
+          - key: traefik.http.services.{{ testnet_container_name }}-rest.loadbalancer.server.port
+            value: 8080
+          - key: traefik.http.routers.{{ testnet_container_name }}-rpc.rule
+            value: Host'(`{{ testnet_container_name | replace('-node', '') }}-testnet-rpc.{{ public_domain }}`)'
+          - key: traefik.http.routers.{{ testnet_container_name }}-rpc.entrypoints
+            value: websecure
+          - key: traefik.http.routers.{{ testnet_container_name }}-rpc.tls
+            value: "true"
+          - key: traefik.http.routers.{{ testnet_container_name }}-rpc.tls.certresolver
+            value: letsencryptProduction
+          - key: traefik.http.routers.{{ testnet_container_name }}-rpc.tls.domains[0].main
+            value: "{{ public_domain }}"
+          - key: traefik.http.routers.{{ testnet_container_name }}-rpc.tls.domains[0].sans
+            value: "*.{{ public_domain }}"
+          - key: traefik.http.routers.{{ testnet_container_name }}-rpc.middlewares
+            value: "{{ testnet_container_name }}-headers@docker,ratelimit"
+          - key: traefik.http.routers.{{ testnet_container_name }}-rpc.service
+            value: "{{ testnet_container_name }}-rpc"
+          - key: traefik.http.services.{{ testnet_container_name }}-rpc.loadbalancer.server.port
+            value: 26657
+
+    - name: Quadlet container file | {{ item.name | replace('-node', '') }}
+      containers.podman.podman_container:
+        name: "{{ testnet_container_name }}"
+        image: "{{ testnet_container_image }}"
+        state: quadlet
+        env:
+          COSMOS_CHAIN_ID: "{{ testnet_container_name | replace('-node', '') }}"
+          COSMOS_MONIKER: "{{ testnet_container_name }}"
+        ports:
+          - "{{ testnet_container_prometheus_port }}:26660"
+          - "{{ testnet_container_p2p_port }}:26656"
+        volumes:
+          - "{{ testnet_container_name }}.volume:/config:bind"
+        label: "{{ traefik_labels | items2dict }}"
+        quadlet_options:
+          - |
+            [Unit]
+            Description=Cosmos-SDK Testnet {{ testnet_container_name | replace('-node', '') }}
+            After=network-online.target
+            Wants=network-online.target
+
+            [Service]
+            Restart=always
+            RestartSec=3
+            TimeoutStartSec=900
+
+            [Install]
+            WantedBy=default.target
+      notify: Restart Cosmos node {{ testnet_container_name }}
+
+    - name: Enable systemd service | {{ item.name | replace('-node', '') }}
+      ansible.builtin.systemd:
+        name: "{{ testnet_container_name }}"
+        enabled: true
+        state: started
+        daemon_reload: true
+
+    - name: Alloy | Edit configuration
+      ansible.builtin.blockinfile:
+        path: "{{ testnet_config_path }}/config.alloy"
+        marker: /// {mark} ANSIBLE MANAGED BLOCK - cosmos_sdk_{{ item.name | replace('-node', '') | replace('-', '_') }}
+        append_newline: true
+        block: |
+          prometheus.scrape "cosmos_sdk_{{ item.name | replace('-node', '') | replace('-', '_') }}" {
+            targets = [{
+              __address__ = "{{ ansible_hostname }}:{{ testnet_container_prometheus_port }}",
+            }]
+            forward_to      = [prometheus.remote_write.victoriametrics.receiver]
+          }
+
+      notify: Restart alloy
+
+  rescue:
+    - name: Healthchecks.io | Send a fail signal
+      when: semaphore_scheduled is defined and semaphore_scheduled | bool
+      community.healthchecksio.ping:
+        state: present
+        uuid: "{{ testnet_healthchecks_uuid }}"
+        signal: fail
+        api_key: "{{ healthchecksio_api_key }}"
+      changed_when: false
+
+    - name: Something went wrong
+      ansible.builtin.fail:
+        msg: An error occured
+      when: not ansible_check_mode

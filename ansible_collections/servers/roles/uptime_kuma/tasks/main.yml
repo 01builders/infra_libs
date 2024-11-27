@@ -1,0 +1,50 @@
+---
+- name: Set common variables
+  ansible.builtin.set_fact:
+    quadlet_label_common:
+      app: uptime-kuma
+
+- name: Set custom variables
+  ansible.builtin.set_fact:
+    quadlet_label: "{{ quadlet_label_common | combine(uptime_kuma_quadlet_label_custom) }}"
+
+- name: Quadlet volume file
+  containers.podman.podman_volume:
+    name: uptime-kuma
+    state: quadlet
+    label:
+      app: uptime-kuma
+  notify: Restart Uptime kuma
+
+- name: Quadlet container file
+  containers.podman.podman_container:
+    name: uptime-kuma
+    image: "{{ uptime_kuma_image }}"
+    state: quadlet
+    network: host
+    volumes:
+      - uptime-kuma.volume:/app/data:bind
+    label: "{{ quadlet_label }}"
+    quadlet_options:
+      - |
+
+        [Unit]
+        Description=uptime-kuma
+        After=network-online.target
+        Wants=network-online.target
+
+        [Service]
+        Restart=always
+        RestartSec=3
+        TimeoutStartSec=900
+
+        [Install]
+        WantedBy=default.target
+  notify: Restart Uptime kuma
+
+- name: Enable systemd service
+  ansible.builtin.systemd:
+    name: uptime-kuma
+    enabled: true
+    state: started
+    daemon_reload: true

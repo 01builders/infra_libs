@@ -1,0 +1,98 @@
+---
+- name: Update repository
+  block:
+    - name: Update repository | Get SHA256 checksum of genesis.json | {{ item.name | replace('-node', '') }}
+      ansible.builtin.command:
+        cmd: shasum -a 256 /mnt/container-volumes/{{ item.name }}/_data/config/genesis.json
+      changed_when: false
+      register: genesis_sha256_raw
+
+    - name: Update repository | Set tendermint subcommand | {{ item.name | replace('-node', '') }}
+      when: "'v2' in testnet_container_name"
+      ansible.builtin.set_fact:
+        subcommand: comet
+
+    - name: Update repository | Set tendermint subcommand | {{ item.name | replace('-node', '') }}
+      when: not 'v2' in testnet_container_name
+      ansible.builtin.set_fact:
+        subcommand: tendermint
+
+    - name: Update repository | Get node_id | {{ item.name | replace('-node', '') }}
+      containers.podman.podman_container_exec:
+        name: "{{ testnet_container_name }}"
+        command: /app/node {{ subcommand }} show-node-id --home /config
+        workdir: /app
+      register: node_id
+      changed_when: false
+
+    - name: Update repository | Extract just the hash | {{ item.name | replace('-node', '') }}
+      ansible.builtin.set_fact:
+        genesis_sha256: "{{ genesis_sha256_raw.stdout.split() | first }}"
+        current_date: "{{ '%Y-%m-%d' | strftime }}"
+
+    - name: Checkout repository | {{ item.name | replace('-node', '') }}
+      ansible.builtin.git:
+        accept_hostkey: true
+        repo: git@github.com:cosmos/nightly-stack.git
+        dest: ~/nigtly-stack
+        version: main
+
+    - name: Update repository | Replace readme content | {{ item.name | replace('-node', '') }}
+      ansible.builtin.lineinfile:
+        path: ~/nigtly-stack/short-lived-testnets/{{ item.name | replace('-node', '') }}/README.md
+        regexp: "{{ index.regexp }}"
+        line: "{{ index.line }}"
+      with_items:
+        - regexp: "^  - SHA256: `.*`$"
+          line: "  - SHA256: `{{ genesis_sha256 }}`"
+        - regexp: ^- \*\*Launch Date:\*\* .*$
+          line: "- **Launch Date:** {{ current_date }}"
+        - regexp: ^\| Seed\s+\| `.*` \|$
+          line: "| Seed    | `{{ node_id.stdout | replace('\n', '') }}@{{ item.name | replace('-node', '') }}-testnet-p2p.interchainsdk.io:{{ testnet_container_p2p_port }}` |"
+      loop_control:
+        loop_var: index
+
+    - name: Update repository | Copy file with owner and permissions
+      ansible.builtin.copy:
+        src: /mnt/container-volumes/{{ item.name }}/_data/config/genesis.json
+        dest: ~/nigtly-stack/short-lived-testnets/{{ item.name | replace('-node', '') }}/genesis.json
+        remote_src: true
+        mode: "0644"
+
+    - name: Update repository | Commit changes on repo | {{ item.name | replace('-node', '') }}
+      environment:
+        GIT_AUTHOR_NAME: ansible-bot
+        GIT_AUTHOR_EMAIL: ansible-bot@cosmos.sdk
+        GIT_COMMITTER_NAME: ansible-bot
+        GIT_COMMITTER_EMAIL: ansible-bot@cosmos.sdk
+      lvrfrc87.git_acp.git_acp:
+        path: ~/nigtly-stack/
+        branch: main
+        comment: "chore(docs): Update testnet {{ item.name | replace('-node', '') }} genesis.json and seed"
+        add:
+          - "./short-lived-testnets/{{ item.name | replace('-node', '') }}/README.md"
+          - "./short-lived-testnets/{{ item.name | replace('-node', '') }}/genesis.json"
+        url: git@github.com:cosmos/nightly-stack.git
+        ssh_params:
+            accept_hostkey: true
+            key_file: ~/.ssh/id_ed25519
+
+    - name: Update repository | Remove repository | {{ item.name | replace('-node', '') }}
+      ansible.builtin.file:
+        path: ~/nigtly-stack
+        state: absent
+
+  rescue:
+    - name: Healthchecks.io | Send a fail signal
+      when: semaphore_scheduled is defined and semaphore_scheduled | bool
+      community.healthchecksio.ping:
+        state: present
+        uuid: "{{ testnet_healthchecks_uuid }}"
+        signal: fail
+        api_key: "{{ healthchecksio_api_key }}"
+      changed_when: false
+
+    - name: Something went wrong
+      ansible.builtin.fail:
+        msg: An error occured
+      when: not ansible_check_mode

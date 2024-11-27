@@ -1,0 +1,60 @@
+---
+- name: Alertmanager | Quadlet volume file
+  containers.podman.podman_volume:
+    name: alertmanager
+    state: quadlet
+    label:
+      app: alertmanager
+  notify: Restart alertmanager
+
+- name: Alertmanager | Create configuration directory
+  ansible.builtin.file:
+    path: "{{ victoriametrics_alertmanager_config_path }}"
+    state: directory
+    mode: "0700"
+
+- name: Alertmanager | Deploy configuration
+  ansible.builtin.copy:
+    dest: "{{ victoriametrics_alertmanager_config_path }}/alertmanager.yml"
+    content: "{{ victoriametics_alertmanager_config }}"
+    mode: "0644"
+  notify: Restart alertmanager
+
+- name: Alertmanager | Quadlet container file
+  containers.podman.podman_container:
+    name: alertmanager
+    image: "{{ victoriametrics_alertmanager_image }}"
+    state: quadlet
+    command:
+      - --config.file=/config/alertmanager.yml
+      - --storage.path=/data
+    ports:
+      - 9093:9093
+    volumes:
+      - alertmanager.volume:/data:bind
+      - "{{ victoriametrics_alertmanager_config_path }}/alertmanager.yml:/config/alertmanager.yml"
+    label:
+      app: alertmanager
+    quadlet_options:
+      - |
+
+        [Unit]
+        Description=alertmanager
+        After=network-online.target
+        Wants=network-online.target
+
+        [Service]
+        Restart=always
+        RestartSec=3
+        TimeoutStartSec=900
+
+        [Install]
+        WantedBy=default.target
+  notify: Restart alertmanager
+
+- name: Alertmanager | Enable systemd service
+  ansible.builtin.systemd:
+    name: alertmanager
+    enabled: true
+    state: started
+    daemon_reload: true

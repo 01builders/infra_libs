@@ -1,0 +1,67 @@
+---
+- name: Podman | Check if binary exists
+  ansible.builtin.command: which podman
+  register: podman_check
+  ignore_errors: true
+  changed_when: false
+
+- name: Podman | Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+  when: podman_check.rc != 0
+
+- name: Podman | Install packages
+  ansible.builtin.apt:
+    name:
+      - podman
+    state: present
+  when: podman_check.rc != 0
+
+- name: Podman | Verify installation
+  ansible.builtin.command: podman --version
+  register: podman_version
+  when: podman_check.rc != 0
+  changed_when: false
+
+- name: Podman | Display version
+  ansible.builtin.debug:
+    var: podman_version.stdout
+  when: podman_check.rc != 0
+
+- name: Podman | Permissions
+  ansible.builtin.file:
+    path: /usr/share/containers
+    mode: "0755"
+    state: directory
+
+- name: Podman | Create symlink for hetzner volume
+  when: configure_hosts_hetzner_volume_mountpoint is defined and configure_hosts_hetzner_volume_mountpoint != ''
+  ansible.builtin.file:
+    src: "{{ configure_hosts_hetzner_volume_mountpoint }}"
+    dest: "{{ configure_hosts_quadlet_volumes_dir }}"
+    state: link
+    mode: "0700"
+    force: true
+
+- name: Podman | Create symlink for volumes
+  ansible.builtin.file:
+    src: "{{ configure_hosts_quadlet_volumes_dir }}"
+    dest: "{{ configure_hosts_quadlet_volumes_mountpoint }}"
+    state: link
+    mode: "0700"
+    force: true
+
+- name: Podman | Create quadlet directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    mode: "0700"
+    state: directory
+  loop:
+    - /usr/share/containers/systemd
+    - /var/lib/containers/storage/volumes
+
+- name: Firewall Allow Incoming on podman0
+  community.general.ufw:
+    rule: allow
+    interface: podman0
+    direction: in

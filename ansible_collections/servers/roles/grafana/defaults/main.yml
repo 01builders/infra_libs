@@ -1,0 +1,4 @@
+---
+grafana_config_path: /root/.local/share/grafana
+grafana_quadlet_env_custom:
+grafana_quadlet_label_custom:

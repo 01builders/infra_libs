@@ -1,0 +1,56 @@
+---
+- name: Create configuration directory
+  ansible.builtin.file:
+    path: "{{ github_notifier_config_path }}"
+    state: directory
+    mode: "0700"
+
+- name: Deploy configuration
+  ansible.builtin.copy:
+    dest: "{{ github_notifier_config_path }}/config.yaml"
+    content: |
+      receivers:
+
+    mode: "0644"
+
+- name: Quadlet volume file
+  containers.podman.podman_volume:
+    name: "{{ github_notifier_name }}"
+    state: quadlet
+    label:
+      app: "{{ github_notifier_name }}"
+
+- name: Quadlet container file
+  containers.podman.podman_container:
+    name: "{{ github_notifier_name }}"
+    image: "{{ github_notifier_image }}"
+    state: quadlet
+    command: python3 /app/github_notifier.py
+    env:
+      SLACK_TOKEN: "{{ github_notifier_slack_token }}"
+      SLACK_CHANNEL: validators-notifications
+      NOTIFIER_HEALTHCHECKS_ID: "{{ github_notifier_healthchecks_id }}"
+      LOG_LEVEL: DEBUG
+    volumes:
+      - "{{ github_notifier_name }}.volume:/config/db:bind"
+      - "{{ github_notifier_config_path }}/config.yaml:/config/config.yaml:ro"
+    label:
+      app: "{{ github_notifier_name }}"
+    quadlet_options:
+      - |
+
+        [Unit]
+        Description="{{ github_notifier_name }}"
+        After=network-online.target
+        Wants=network-online.target
+
+        [Install]
+        WantedBy=default.target
+
+- name: Schedule task to run every 6 hours
+  ansible.builtin.cron:
+    name: "{{ github_notifier_name }}"
+    minute: "0"
+    hour: "*/6"
+    job: systemctl start "{{ github_notifier_name }}"
+    state: present

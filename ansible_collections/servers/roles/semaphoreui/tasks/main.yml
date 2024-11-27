@@ -1,0 +1,63 @@
+---
+- name: Set common variables
+  ansible.builtin.set_fact:
+    quadlet_label_common:
+      app: semaphoreui
+
+- name: Set custom variables
+  ansible.builtin.set_fact:
+    quadlet_label: "{{ quadlet_label_common | combine(semaphoreui_quadlet_label_custom) }}"
+
+- name: Quadlet volume files
+  containers.podman.podman_volume:
+    name: "{{ item }}"
+    state: quadlet
+    label:
+      app: "{{ item }}"
+  loop:
+    - semaphoreui
+    - semaphoreui-db
+  notify: Restart Semaphoreui
+
+- name: Quadlet semaphoreui-db container file
+  containers.podman.podman_container:
+    name: semaphoreui
+    image: "{{ semaphoreui_image }}"
+    state: quadlet
+    env:
+      TZ: UTC
+      SEMAPHORE_DB_DIALECT: bolt
+      SEMAPHORE_PLAYBOOK_PATH: /mnt/playbooks/
+      SEMAPHORE_ADMIN_EMAIL: admin@localhost
+      SEMAPHORE_ADMIN: admin
+      SEMAPHORE_ADMIN_PASSWORD: "{{ semaphore_admin_password }}"
+      SEMAPHORE_ACCESS_KEY_ENCRYPTION: "{{ semaphore_access_key_encryption }}"
+    network: host
+    volumes:
+      - semaphoreui.volume:/mnt/playbooks
+      - semaphoreui-db.volume:/var/lib/semaphore
+    label: "{{ quadlet_label }}"
+    quadlet_options:
+      - |
+
+        [Unit]
+        Description=Semaphore UI (Tasks manager for DevOps teams)
+        After=network-online.target
+        Wants=network-online.target
+
+        [Service]
+        Restart=always
+        RestartSec=3
+        TimeoutStartSec=900
+
+        [Install]
+        WantedBy=default.target
+  notify: Restart Semaphoreui
+
+
+- name: Enable systemd service
+  ansible.builtin.systemd:
+    name: semaphoreui
+    enabled: true
+    state: started
+    daemon_reload: true

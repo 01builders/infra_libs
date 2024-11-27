@@ -1,0 +1,32 @@
+---
+- name: Restart Cosmos node {{ testnet_container_name }}
+  ansible.builtin.systemd_service:
+    name: "{{ testnet_container_name }}"
+    daemon_reload: true
+    enabled: true
+    state: restarted
+
+- name: Restart Ping-dashboard
+  ansible.builtin.systemd_service:
+    name: ping-dashboard
+    daemon_reload: true
+    enabled: true
+    state: restarted
+
+- name: Restart Faucet
+  ansible.builtin.systemd_service:
+    name: faucet
+    daemon_reload: true
+    enabled: true
+    state: restarted
+
+- name: Restart cosmos-validator-watcher-{{ testnet_container_name | replace('-node', '') }}
+  ansible.builtin.systemd_service:
+    name: cosmos-validator-watcher-{{ testnet_container_name | replace('-node', '') }}
+    state: restarted
+
+- name: Restart alloy
+  ansible.builtin.systemd_service:
+    name: alloy
+    daemon_reload: true
+    state: restarted

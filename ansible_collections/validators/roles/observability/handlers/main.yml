@@ -1,0 +1,13 @@
+---
+- name: Restart vmalert
+  ansible.builtin.systemd_service:
+    name: vmalert
+    daemon_reload: true
+    state: restarted
+  delegate_to: coreservices
+
+- name: Restart alloy
+  ansible.builtin.systemd_service:
+    name: alloy
+    daemon_reload: true
+    state: restarted

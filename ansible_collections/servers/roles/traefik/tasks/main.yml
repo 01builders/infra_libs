@@ -1,0 +1,75 @@
+---
+- name: Create configuration directory
+  ansible.builtin.file:
+    path: "{{ traefik_config_path }}"
+    state: directory
+    mode: "0700"
+
+- name: Firewall | Firewall Allow Incoming on public interface
+  community.general.ufw:
+    rule: allow
+    interface: "{{ public_interface }}"
+    direction: in
+    port: "{{ item }}"
+    proto: tcp
+  loop:
+    - http
+    - https
+
+- name: Deploy configuration
+  ansible.builtin.template:
+    src: config.yaml.j2
+    dest: "{{ traefik_config_path }}/traefik.yaml"
+    mode: "0644"
+  notify: Restart Traefik
+
+- name: Quadlet volume file
+  containers.podman.podman_volume:
+    name: traefik
+    state: quadlet
+    label:
+      app: traefik
+  notify: Restart Traefik
+
+- name: Quadlet container file
+  containers.podman.podman_container:
+    name: traefik
+    image: "{{ traefik_image }}"
+    state: quadlet
+    env:
+      CONTAINER_HOST: unix:///run/podman/podman.sock
+      NAMECHEAP_API_USER: "{{ namecheap_api_user }}"
+      NAMECHEAP_API_KEY: "{{ namecheap_api_key }}"
+      TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPTPRODUCTION_ACME_EMAIL: "{{ admin_email }}"
+      TRAEFIK_CERTIFICATESRESOLVERS_LETSENCRYPTSTAGING_ACME_EMAIL: "{{ admin_email }}"
+    volumes:
+      - "{{ traefik_config_path }}/traefik.yaml:/etc/traefik/traefik.yaml:ro"
+      - traefik.volume:/data:bind
+      - /run/podman/podman.sock:/var/run/docker.sock:z
+    network: host
+    label:
+      app: traefik
+    quadlet_options:
+      - |
+        SecurityLabelType=container_runtime_t
+
+        [Unit]
+        Description=Cloud Native Reverse-proxy
+        After=network-online.target
+        Wants=network-online.target
+
+        [Service]
+        Restart=always
+        RestartSec=3
+        TimeoutStartSec=900
+
+        [Install]
+        WantedBy=default.target
+  notify: Restart Traefik
+
+- name: Enable systemd service
+  ansible.builtin.systemd:
+    name: traefik
+    enabled: true
+    state: started
+    daemon_reload: true

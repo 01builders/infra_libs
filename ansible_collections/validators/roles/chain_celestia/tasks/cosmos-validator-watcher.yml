@@ -1,0 +1,63 @@
+---
+- name: Cosmos-validator-watcher | Set testnet vars
+  when: chain_celestia_network == "mocha"
+  ansible.builtin.set_fact:
+    quadlet_command:
+      - --http-addr :{{ chain_celestia_watcher_prometheus_port }}
+      - --node http://localhost:{{ chain_celestia_appd_rpc_port }}
+      - --node https://rpc-mocha-full.avril14th.org:443
+      - --node https://celestia-testnet-rpc.itrocket.net:443
+      - --validator 6B9DDE2E07592A5BDDF4F93FEA6837253057B642:celestia-app-mocha
+
+- name: Cosmos-validator-watcher | Set mainnet vars
+  when: chain_celestia_network == "mainnet"
+  ansible.builtin.set_fact:
+    quadlet_command:
+      - --http-addr :{{ chain_celestia_watcher_prometheus_port }}
+      - --node http://localhost:{{ chain_celestia_appd_rpc_port }}
+      - --node https://celestia-rpc.publicnode.com:443
+      - --validator CBFB913FC967932260667909727676760FA8FA24:celestia-app-mainnet
+
+- name: Cosmos-validator-watcher | Quadlet container file
+  containers.podman.podman_container:
+    name: cosmos-validator-watcher-{{ chain_celestia_chain_id }}
+    image: "{{ chain_celestia_cosmos_validator_watcher_image }}"
+    state: quadlet
+    command: "{{ quadlet_command }}"
+    network: host
+    label:
+      app: celestia-{{ chain_celestia_chain_id }}
+    quadlet_options:
+      - |
+
+        [Unit]
+        Description=cosmos-validator-watcher for {{ chain_celestia_chain_id }}
+        After=network-online.target
+        Wants=network-online.target
+
+        [Service]
+        Restart=always
+        RestartSec=3
+        TimeoutStartSec=900
+
+        [Install]
+        WantedBy=default.target
+  notify: Restart cosmos-validator-watcher-{{ chain_celestia_chain_id }}
+
+- name: Cosmos-validator-watcher | Add sudoers file
+  ansible.builtin.copy:
+    dest: "/etc/sudoers.d/{{ chain_celestia_user }}-cosmos-validator-watcher-{{ chain_celestia_network }}"
+    content: |
+      {{ chain_celestia_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl start cosmos-validator-watcher-{{ chain_celestia_network }}.service
+      {{ chain_celestia_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop cosmos-validator-watcher-{{ chain_celestia_network }}.service
+      {{ chain_celestia_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart cosmos-validator-watcher-{{ chain_celestia_network }}.service
+      {{ chain_celestia_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl status cosmos-validator-watcher-{{ chain_celestia_network }}.service
+    mode: "0440"
+    validate: /usr/sbin/visudo -cf %s
+
+- name: Cosmos-validator-watcher | Enable systemd service
+  ansible.builtin.systemd:
+    name: cosmos-validator-watcher-{{ chain_celestia_chain_id }}
+    enabled: true
+    state: started
+    daemon_reload: true

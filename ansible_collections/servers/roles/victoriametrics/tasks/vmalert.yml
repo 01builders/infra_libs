@@ -1,0 +1,57 @@
+---
+- name: VMAlert | Create configuration directory
+  ansible.builtin.file:
+    path: "{{ victoriametrics_vmalert_config_path }}"
+    state: directory
+    mode: "0700"
+
+- name: VMAlert | Deploy configuration
+  ansible.builtin.template:
+    src: "vmalert/{{ item }}.j2"
+    dest: "{{ victoriametrics_vmalert_config_path }}/{{ item }}"
+    mode: "0644"
+  notify: Restart vmalert
+  loop:
+    - victoriametrics.yml
+
+- name: VMAlert | Quadlet container file
+  containers.podman.podman_container:
+    name: vmalert
+    image: "{{ victoriametrics_vmalert_image }}"
+    state: quadlet
+    command:
+      - --datasource.url=http://host.containers.internal:8428
+      - --remoteRead.url=http://host.containers.internal:8428
+      - --remoteWrite.url=http://host.containers.internal:8428
+      - --notifier.url=http://host.containers.internal:9093
+      - --rule=/etc/alerts/*.yml
+      - '{% raw %}-external.alert.source=explore?orgId=1&left={"datasource":"VictoriaMetrics","queries":[{"expr":{{.Expr|jsonEscape|queryEscape}},"refId":"A"}],"range":{"from":"{{ .ActiveAt.UnixMilli }}","to":"now"}}{% endraw %}'
+    ports:
+      - 8880:8880
+    volumes:
+      - "{{ victoriametrics_vmalert_config_path }}:/etc/alerts"
+    label:
+      app: vmalert
+    quadlet_options:
+      - |
+
+        [Unit]
+        Description=vmalert
+        After=network-online.target
+        Wants=network-online.target
+
+        [Service]
+        Restart=always
+        RestartSec=3
+        TimeoutStartSec=900
+
+        [Install]
+        WantedBy=default.target
+  notify: Restart vmalert
+
+- name: VMAlert | Enable systemd service
+  ansible.builtin.systemd:
+    name: vmalert
+    enabled: true
+    state: started
+    daemon_reload: true

@@ -1,0 +1,81 @@
+---
+- name: Reload faucet if necessary
+  ansible.builtin.meta: flush_handlers
+
+- name: Check if wallet mnemonic exists
+  ansible.builtin.wait_for:
+    path: "{{ testnet_services_config_dir }}faucet/_data/mnemonic_{{ (item.chain | replace('-', '_')) }}.txt"
+  timeout: 30
+
+- name: Copy pingpub wallet mnemonic to validator container | {{ item.chain }}
+  ansible.builtin.copy:
+    src: "{{ testnet_services_config_dir }}faucet/_data/mnemonic_{{ (item.chain | replace('-', '_')) }}.txt"
+    dest: "{{ testnet_services_config_dir }}{{ item.chain }}-node/_data/pingpub_mnemonic.txt"
+    mode: "0644"
+    remote_src: true
+
+- name: Check pingpub wallet keys | {{ item.chain }}
+  containers.podman.podman_container_exec:
+    name: "{{ item.chain }}-node"
+    command: ./node keys show pingpub --home /config
+    workdir: /app
+  register: check_wallet
+  changed_when: false
+  failed_when: false
+
+- name: Import pingpub wallet | {{ item.chain }}
+  when: check_wallet.rc != 0
+  containers.podman.podman_container_exec:
+    name: "{{ item.chain }}-node"
+    command: ./node keys add pingpub --recover --source=/config/pingpub_mnemonic.txt --home=/config
+    workdir: /app
+
+- name: Check pingpub wallet keys | {{ item.chain }}
+  when: check_wallet.rc != 0
+  containers.podman.podman_container_exec:
+    name: "{{ item.chain }}-node"
+    command: ./node keys show pingpub --home /config
+    workdir: /app
+  register: check_wallet2
+
+- name: Show command output | {{ item.chain }}
+  when: check_wallet2.changed # noqa: no-handler
+  ansible.builtin.debug:
+    msg: "{{ check_wallet2 }}"
+
+- name: Check funds on pingpub wallet | {{ item.chain }}
+  containers.podman.podman_container_exec:
+    name: "{{ item.chain }}-node"
+    command: ./node query bank balances pingpub --home /config
+    workdir: /app
+  changed_when: false
+  register: balances
+
+- name: Extract stake amount as integer | {{ item.chain }}
+  ansible.builtin.set_fact:
+    stake_amount: >-
+      {{
+        ((balances.stdout | from_yaml).balances | default([]) | selectattr('denom', 'eq', 'stake') | list | first).amount | int
+        if (balances.stdout | from_yaml).balances | default([]) | length > 0
+        else 0
+      }}
+
+- name: Show stake_amount | {{ item.chain }}
+  ansible.builtin.debug:
+    msg: "{{ stake_amount }}"
+
+- name: Get pingpub keys | {{ item.chain }}
+  containers.podman.podman_container_exec:
+    name: "{{ item.chain }}-node"
+    command: ./node keys show pingpub --home /config
+    workdir: /app
+  register: pingpub_key
+  changed_when: false
+
+- name: Transfer funds when stake_amount < 50000000 | {{ item.chain }}
+  when: (stake_amount | int) < 50000000
+  containers.podman.podman_container_exec:
+    name: "{{ item.chain }}-node"
+    command: ./node tx bank send {{ item.address }} {{ (pingpub_key.stdout | from_yaml)[0].address }} 50000000stake --from faucet --yes --home /config
+    workdir: /app
+  changed_when: true

@@ -1,0 +1,65 @@
+---
+- name: Check if Go wanted version is installed
+  ansible.builtin.shell: |
+    source /home/{{ install_go_user }}/.bash_profile
+    go version
+  args:
+    executable: /bin/bash
+  register: check_go
+  failed_when: false
+  changed_when: false
+
+- name: Install go {{ install_go_version }}
+  when: install_go_version not in check_go.stdout
+  block:
+    - name: Download Golang {{ install_go_version }}
+      ansible.builtin.get_url:
+        url: "https://golang.org/dl/go{{ install_go_version }}.linux-amd64.tar.gz"
+        dest: "/tmp/go{{ install_go_version }}.linux-amd64.tar.gz"
+        mode: "0644"
+
+    - name: Create directories
+      ansible.builtin.file:
+        path: /usr/local/go/{{ install_go_version }}
+        state: directory
+        mode: "0755"
+
+    - name: Extract Golang to /usr/local/{{ install_go_version }}
+      ansible.builtin.unarchive:
+        src: "/tmp/go{{ install_go_version }}.linux-amd64.tar.gz"
+        dest: /usr/local/go/{{ install_go_version }}
+        remote_src: true
+
+    - name: Remove Go tarball
+      ansible.builtin.file:
+        path: "/tmp/go{{ install_go_version }}.linux-amd64.tar.gz"
+        state: absent
+
+    - name: Ensure Go binary path is in the remote user's .bash_profile
+      ansible.builtin.copy:
+        dest: /home/{{ install_go_user }}/.bash_profile
+        content: |
+          export PATH=$PATH:/usr/local/go/{{ install_go_version }}/go/bin:/home/{{ install_go_user }}/go/bin
+        mode: "0644"
+        owner: "{{ install_go_user }}"
+        group: users
+
+    - name: Source .bash_profile and check Go version
+      ansible.builtin.shell: |
+        source /home/{{ install_go_user }}/.bash_profile
+        go version
+      args:
+        executable: /bin/bash
+      register: go_version_output
+      failed_when: "'go version' not in go_version_output.stdout"
+      changed_when: true
+
+    - name: Print Go version
+      ansible.builtin.debug:
+        msg: "{{ go_version_output.stdout }}"
+
+  rescue:
+    - name: Something went wrong
+      ansible.builtin.fail:
+        msg: An error occured
+      when: not ansible_check_mode

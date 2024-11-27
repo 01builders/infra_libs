@@ -1,0 +1,14 @@
+---
+- name: Restart Ping-dashboard
+  ansible.builtin.systemd_service:
+    name: ping-dashboard
+    daemon_reload: true
+    enabled: true
+    state: restarted
+
+- name: Restart Faucet
+  ansible.builtin.systemd_service:
+    name: faucet
+    daemon_reload: true
+    enabled: true
+    state: restarted

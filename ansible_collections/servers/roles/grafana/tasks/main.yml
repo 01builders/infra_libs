@@ -1,0 +1,68 @@
+---
+- name: Set common variables
+  ansible.builtin.set_fact:
+    quadlet_env_common:
+      GF_INSTALL_PLUGINS: https://github.com/VictoriaMetrics/victoriametrics-datasource/releases/download/v0.10.1/victoriametrics-datasource-v0.10.1.zip;victoriametrics-datasource,https://github.com/VictoriaMetrics/victorialogs-datasource/releases/download/v0.6.1/victorialogs-datasource-v0.6.1.zip;victorialogs-datasource
+      GF_PLUGINS_ALLOW_LOADING_UNSIGNED_PLUGINS: victoriametrics-datasource,victorialogs-datasource
+    quadlet_label_common:
+      app: grafana
+
+- name: Set custom variables
+  ansible.builtin.set_fact:
+    quadlet_env: "{{ quadlet_env_common | combine(grafana_quadlet_env_custom) }}"
+    quadlet_label: "{{ quadlet_label_common | combine(grafana_quadlet_label_custom) }}"
+
+- name: Create configuration directory
+  ansible.builtin.file:
+    path: "{{ grafana_config_path }}"
+    state: directory
+    mode: "0700"
+
+- name: Deploy configuration
+  ansible.builtin.template:
+    src: datasources.yml.j2
+    dest: "{{ grafana_config_path }}/datasources.yml"
+    mode: "0644"
+  notify: Restart Grafana
+
+- name: Quadlet volume file
+  containers.podman.podman_volume:
+    name: grafana
+    state: quadlet
+    label:
+      app: grafana
+  notify: Restart Grafana
+
+- name: Quadlet container file
+  containers.podman.podman_container:
+    name: grafana
+    image: "{{ grafana_image }}"
+    state: quadlet
+    volumes:
+      - grafana.volume:/var/lib/grafana:bind
+      - "{{ grafana_config_path }}/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yaml:ro"
+    env: "{{ quadlet_env }}"
+    label: "{{ quadlet_label }}"
+    quadlet_options:
+      - |
+
+        [Unit]
+        Description=grafana
+        After=network-online.target
+        Wants=network-online.target
+
+        [Service]
+        Restart=always
+        RestartSec=3
+        TimeoutStartSec=900
+
+        [Install]
+        WantedBy=default.target
+  notify: Restart Grafana
+
+- name: Enable systemd service
+  ansible.builtin.systemd:
+    name: grafana
+    enabled: true
+    state: started
+    daemon_reload: true

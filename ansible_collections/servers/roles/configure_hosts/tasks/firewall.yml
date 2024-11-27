@@ -1,0 +1,20 @@
+---
+- name: Firewall | Allow OpenSSH
+  when: configure_hosts_ufw_close_ssh is not defined or not configure_hosts_ufw_close_ssh | bool
+  community.general.ufw:
+    rule: limit
+    name: OpenSSH
+
+- name: Firewall | Default deny incoming
+  community.general.ufw:
+    default: deny
+    direction: incoming
+
+- name: Firewall | Default allow outgoing
+  community.general.ufw:
+    default: allow
+    direction: outgoing
+
+- name: Firewall | Enable
+  community.general.ufw:
+    state: enabled

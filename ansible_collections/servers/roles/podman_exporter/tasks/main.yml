@@ -1,0 +1,57 @@
+---
+- name: Quadlet container file
+  containers.podman.podman_container:
+    name: podman-exporter
+    image: "{{ podman_exporter_image }}"
+    state: quadlet
+    env:
+      CONTAINER_HOST: unix:///run/podman/podman.sock
+    command: --collector.enhance-metrics {{ podman_exporter_args }}
+    volumes:
+      - /run/podman/podman.sock:/run/podman/podman.sock
+    network: host
+    user: root
+    label:
+      app: podman-exporter
+    quadlet_options:
+      - |
+        SecurityLabelDisable=true
+
+        [Unit]
+        Description=Prometheus exporter for podman environments exposing containers, pods, images, volumes and networks information.
+        After=network-online.target
+        Wants=network-online.target
+
+        [Service]
+        Restart=always
+        RestartSec=3
+        TimeoutStartSec=900
+
+        [Install]
+        WantedBy=default.target
+  notify: Restart Podman-exporter
+
+- name: Enable systemd service
+  ansible.builtin.systemd:
+    name: podman-exporter
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Alloy | Edit configuration
+  ansible.builtin.blockinfile:
+    path: "{{ podman_exporter_config_path }}/config.alloy"
+    marker: /// {mark} ANSIBLE MANAGED BLOCK - podman_exporter
+    append_newline: true
+    block: |
+      prometheus.scrape "podman_exporter" {
+        clustering {
+          enabled = true
+        }
+        targets = [{
+          __address__ = "{{ ansible_hostname }}:9882",
+        }]
+        forward_to      = [prometheus.remote_write.victoriametrics.receiver]
+      }
+
+  notify: Restart alloy

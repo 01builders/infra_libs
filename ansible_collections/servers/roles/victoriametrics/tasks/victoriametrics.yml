@@ -1,0 +1,63 @@
+---
+- name: VictoriaMetrics | Quadlet volume file
+  containers.podman.podman_volume:
+    name: victoriametrics
+    state: quadlet
+    label:
+      app: victoriametrics
+  notify: Restart victoriametrics
+
+- name: VictoriaMetrics | Quadlet container file
+  containers.podman.podman_container:
+    name: victoriametrics
+    image: "{{ victoriametrics_image }}"
+    state: quadlet
+    command:
+      - --storageDataPath=/storage
+      - --httpListenAddr=:8428
+    network: host
+    volumes:
+      - victoriametrics.volume:/storage:bind
+    label:
+      app: victoriametrics
+    quadlet_options:
+      - |
+
+        [Unit]
+        Description=victoriametrics
+        After=network-online.target
+        Wants=network-online.target
+
+        [Service]
+        Restart=always
+        RestartSec=3
+        TimeoutStartSec=900
+
+        [Install]
+        WantedBy=default.target
+  notify: Restart victoriametrics
+
+- name: VictoriaMetrics | Enable systemd service
+  ansible.builtin.systemd:
+    name: victoriametrics
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Alloy | Edit configuration
+  ansible.builtin.blockinfile:
+    path: "{{ victoriametrics_alloy_config_path }}/config.alloy"
+    marker: /// {mark} ANSIBLE MANAGED BLOCK - victoriametrics
+    append_newline: true
+    block: |
+      prometheus.scrape "victoriametrics" {
+        clustering {
+          enabled = true
+        }
+        targets = [{
+          __address__ = "{{ ansible_hostname }}:8428",
+        }]
+        forward_to      = [prometheus.remote_write.victoriametrics.receiver]
+      }
+
+  notify: Restart alloy

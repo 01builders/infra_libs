@@ -1,0 +1,106 @@
+---
+- name: Create configuration directory
+  ansible.builtin.file:
+    path: "{{ alloy_config_path }}"
+    state: directory
+    mode: "0700"
+
+- name: Edit configuration
+  ansible.builtin.blockinfile:
+    path: "{{ alloy_config_path }}/config.alloy"
+    marker: /// {mark} ANSIBLE MANAGED BLOCK - Generic
+    create: true
+    append_newline: true
+    mode: "0644"
+    block: |
+      //
+      // METRICS
+      //
+      prometheus.remote_write "victoriametrics" {
+        endpoint {
+          url = "http://{{ alloy_victoriametrics_host }}:8428/prometheus/api/v1/write"
+        }
+      }
+
+      //
+      // LOGS
+      //
+
+      loki.relabel "journal" {
+        forward_to = []
+        rule {
+          target_label = "job"
+          replacement  = "integrations/journal"
+        }
+        rule {
+          target_label = "instance"
+          replacement  = constants.hostname
+        }
+        rule {
+          source_labels = ["__journal__systemd_unit"]
+          target_label  = "unit"
+        }
+      }
+
+      loki.source.journal "read" {
+        forward_to    = [loki.write.victorialogs.receiver]
+        relabel_rules = loki.relabel.journal.rules
+        max_age       = "12h"
+        path          = "/var/log/journal"
+        labels        = {component = "loki.source.journal"}
+      }
+
+      loki.write "victorialogs" {
+        endpoint {
+          url = "http://{{ alloy_victorialogs_host }}:9428/insert/loki/api/v1/push"
+        }
+      }
+
+  notify: Restart alloy
+
+- name: Quadlet volume file
+  containers.podman.podman_volume:
+    name: alloy
+    state: quadlet
+    label:
+      app: alloy
+  notify: Restart alloy
+
+- name: Quadlet container file
+  containers.podman.podman_container:
+    name: alloy
+    image: "{{ alloy_image }}"
+    state: quadlet
+    network: host
+    user: root
+    volumes:
+      - /run/podman/podman.sock:/run/podman/podman.sock
+      - alloy.volume:/var/lib/alloy/data:bind
+      - /var/log:/var/log:ro
+      - "{{ alloy_config_path }}/config.alloy:/etc/alloy/config.alloy:ro"
+    command: run --server.http.listen-addr=0.0.0.0:12345 --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
+    label:
+      app: alloy
+    quadlet_options:
+      - |
+
+        [Unit]
+        Description=alloy
+        After=network-online.target
+        Wants=network-online.target
+
+        [Service]
+        Restart=always
+        RestartSec=3
+        TimeoutStartSec=900
+
+        [Install]
+        WantedBy=default.target
+  notify: Restart alloy
+
+- name: Enable systemd service
+  ansible.builtin.systemd:
+    name: alloy
+    enabled: true
+    state: started
+    daemon_reload: true

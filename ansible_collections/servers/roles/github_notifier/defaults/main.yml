@@ -1,0 +1,1 @@
+github_notifier_config_path: /root/.local/share/{{ github_notifier_name }}

@@ -1,0 +1,67 @@
+---
+- name: Create configuration directory
+  ansible.builtin.file:
+    path: "{{ testnet_services_config_path }}"
+    state: directory
+    mode: "0700"
+
+- name: Show faucet chains
+  ansible.builtin.debug:
+    msg: "{{ faucet_chains }}"
+
+- name: Deploy configuration
+  ansible.builtin.template:
+    src: config.js.j2
+    dest: "{{ testnet_services_config_path }}/config.js"
+    mode: "0644"
+  notify: Restart Faucet
+
+- name: Quadlet volume file
+  containers.podman.podman_volume:
+    name: faucet
+    state: quadlet
+    label:
+      app: faucet
+  notify: Restart Faucet
+
+- name: Quadlet container file
+  containers.podman.podman_container:
+    name: faucet
+    image: "{{ testnet_services_faucet_image }}"
+    state: quadlet
+    label:
+      app: faucet
+      traefik.enable: "true"
+      traefik.http.routers.faucet.rule: Host'(`faucet-testnet.{{ public_domain }}`)'
+      traefik.http.routers.faucet.entrypoints: websecure
+      traefik.http.routers.faucet.tls: "true"
+      traefik.http.routers.faucet.tls.certresolver: letsencryptProduction
+      traefik.http.routers.faucet.tls.domains[0].main: "{{ public_domain }}"
+      traefik.http.routers.faucet.tls.domains[0].sans: "*.{{ public_domain }}"
+      traefik.http.services.faucet.loadbalancer.server.port: 8088
+    volumes:
+      - "{{ testnet_services_config_path }}/config.js:/app/config.js:ro"
+      - faucet.volume:/config:bind
+    quadlet_options:
+      - |
+
+        [Unit]
+        Description=faucet
+        After=network-online.target
+        Wants=network-online.target
+
+        [Service]
+        Restart=always
+        RestartSec=3
+        TimeoutStartSec=900
+
+        [Install]
+        WantedBy=default.target
+  notify: Restart Faucet
+
+- name: Enable systemd service
+  ansible.builtin.systemd:
+    name: faucet
+    enabled: true
+    state: started
+    daemon_reload: true
