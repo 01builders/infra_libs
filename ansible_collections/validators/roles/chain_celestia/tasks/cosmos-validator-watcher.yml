@@ -21,7 +21,7 @@
 - name: Cosmos-validator-watcher | Quadlet container file
   containers.podman.podman_container:
     name: cosmos-validator-watcher-{{ chain_celestia_chain_id }}
-    image: ghcr.io/kilnfi/cosmos-validator-watcher:v0.13.0@sha256:0d09fae2e0a7d6fa75d63e95f924d17edcdadaaed3b747111e173d6d721ec3c4
+    image: ghcr.io/kilnfi/cosmos-validator-watcher:v0.14.0@sha256:9cdbd0465cae983ad008a359974f8b4a04dcf51000a45ae41367ea2968608fc7
     state: quadlet
     command: "{{ quadlet_command }}"
     network: host
