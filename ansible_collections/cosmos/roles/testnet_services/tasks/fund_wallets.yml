@@ -76,6 +76,6 @@
   when: (stake_amount | int) < 50000000
   containers.podman.podman_container_exec:
     name: "{{ item.chain }}-node"
-    command: sh -c "{{ item.command_prefix }}./node tx bank send {{ item.address }} {{ (pingpub_key.stdout | from_yaml)[0].address }} 50000000stake --from faucet --yes  --chain-id testchain --home /config"
+    command: sh -c "{{ item.command_prefix }}./node tx bank send {{ item.address }} {{ (pingpub_key.stdout | from_yaml)[0].address }} 50000000stake --from faucet --yes  {{ item.send_tx_custom_flags }} --home /config"
     workdir: /app
   changed_when: true

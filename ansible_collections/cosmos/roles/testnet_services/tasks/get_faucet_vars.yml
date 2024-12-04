@@ -19,7 +19,8 @@
         faucet_chains | default([]) + [{
           'chain': testnet_services_testnets[idx].chain,
           'address': (faucet_key.results[idx].stdout | from_yaml)[0].address,
-          'command_prefix': testnet_services_testnets[idx].command_prefix
+          'command_prefix': testnet_services_testnets[idx].command_prefix,
+          'send_tx_custom_flags': testnet_services_testnets[idx].send_tx_custom_flags
         }]
       }}
   loop: "{{ testnet_services_testnets }}"
