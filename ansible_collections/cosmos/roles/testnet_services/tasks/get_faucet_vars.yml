@@ -1,16 +1,27 @@
 ---
-- name: Get faucet keys | {{ item }}
+- name: Get faucet keys
   containers.podman.podman_container_exec:
-    name: "{{ item }}-node"
-    command: ./node keys show faucet --home /config
+    name: "{{ item.chain }}-node"
+    command: sh -c "{{ item.command_prefix }}./node keys show faucet --home /config"
     workdir: /app
   register: faucet_key
   loop: "{{ testnet_services_testnets }}"
   changed_when: false
 
-- name: Create mapped dictionary of addresses | {{ item }}
+- name: Debug output
+  ansible.builtin.debug:
+    msg: "{{ faucet_key }}"
+
+- name: Create mapped dictionary of addresses
   ansible.builtin.set_fact:
-    faucet_chains: "{{ faucet_chains | default([]) + [{'chain': testnet_services_testnets[idx], 'address': (faucet_key.results[idx].stdout | from_yaml)[0].address}] }}"
+    faucet_chains: >-
+      {{
+        faucet_chains | default([]) + [{
+          'chain': testnet_services_testnets[idx].chain,
+          'address': (faucet_key.results[idx].stdout | from_yaml)[0].address,
+          'command_prefix': testnet_services_testnets[idx].command_prefix
+        }]
+      }}
   loop: "{{ testnet_services_testnets }}"
   loop_control:
     index_var: idx

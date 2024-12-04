@@ -17,7 +17,7 @@
 - name: Check pingpub wallet keys | {{ item.chain }}
   containers.podman.podman_container_exec:
     name: "{{ item.chain }}-node"
-    command: ./node keys show pingpub --home /config
+    command: sh -c "{{ item.command_prefix }}./node keys show pingpub --home /config"
     workdir: /app
   register: check_wallet
   changed_when: false
@@ -27,14 +27,14 @@
   when: check_wallet.rc != 0
   containers.podman.podman_container_exec:
     name: "{{ item.chain }}-node"
-    command: ./node keys add pingpub --recover --source=/config/pingpub_mnemonic.txt --home=/config
+    command: sh -c "{{ item.command_prefix }}./node keys add pingpub --recover --source=/config/pingpub_mnemonic.txt --home=/config"
     workdir: /app
 
 - name: Check pingpub wallet keys | {{ item.chain }}
   when: check_wallet.rc != 0
   containers.podman.podman_container_exec:
     name: "{{ item.chain }}-node"
-    command: ./node keys show pingpub --home /config
+    command: sh -c "{{ item.command_prefix }}./node keys show pingpub --home /config"
     workdir: /app
   register: check_wallet2
 
@@ -46,7 +46,7 @@
 - name: Check funds on pingpub wallet | {{ item.chain }}
   containers.podman.podman_container_exec:
     name: "{{ item.chain }}-node"
-    command: ./node query bank balances pingpub --home /config
+    command: sh -c "{{ item.command_prefix }}./node query bank balances pingpub --home /config"
     workdir: /app
   changed_when: false
   register: balances
@@ -67,7 +67,7 @@
 - name: Get pingpub keys | {{ item.chain }}
   containers.podman.podman_container_exec:
     name: "{{ item.chain }}-node"
-    command: ./node keys show pingpub --home /config
+    command: sh -c "{{ item.command_prefix }}./node keys show pingpub --home /config"
     workdir: /app
   register: pingpub_key
   changed_when: false
@@ -76,6 +76,6 @@
   when: (stake_amount | int) < 50000000
   containers.podman.podman_container_exec:
     name: "{{ item.chain }}-node"
-    command: ./node tx bank send {{ item.address }} {{ (pingpub_key.stdout | from_yaml)[0].address }} 50000000stake --from faucet --yes --home /config
+    command: sh -c "{{ item.command_prefix }}./node tx bank send {{ item.address }} {{ (pingpub_key.stdout | from_yaml)[0].address }} 50000000stake --from faucet --yes  --chain-id testchain --home /config"
     workdir: /app
   changed_when: true
