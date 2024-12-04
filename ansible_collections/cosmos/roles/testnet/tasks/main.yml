@@ -3,14 +3,18 @@
   ansible.builtin.include_tasks: quadlet.yml
 
 - name: Reset state
-  when: not testnet_container_longlived | bool
+  when:
+    - not testnet_container_longlived | bool
+    - semaphore_scheduled is defined and semaphore_scheduled | bool
   ansible.builtin.include_tasks: reset-state.yml
 
 - name: Configuration
   ansible.builtin.include_tasks: configuration.yml
 
 - name: Update repository
-  when: not testnet_container_longlived | bool
+  when:
+    - not testnet_container_longlived | bool
+    - semaphore_scheduled is defined and semaphore_scheduled | bool
   ansible.builtin.include_tasks: update-repository.yml
 
 # - name: Cosmos-validator-watcher
