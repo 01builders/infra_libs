@@ -1,3 +1,4 @@
 ---
+testnet_services_command_prefix:
 testnet_services_config_path: /root/.local/share/faucet
 testnet_services_config_dir: /mnt/container-volumes/

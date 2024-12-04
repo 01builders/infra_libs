@@ -25,7 +25,7 @@ function createAndReadMnemonic(path, label) {
 }
 
 {% for chain in testnet_services_testnets %}
-const mnemonic_{{ (chain | replace('-', '_')) }} = createAndReadMnemonic(`${HOME}/mnemonic_{{ (chain | replace('-', '_')) }}.txt`, "mnemonic_{{ (chain | replace('-', '_')) }}");
+const mnemonic_{{ (chain.chain | replace('-', '_')) }} = createAndReadMnemonic(`${HOME}/mnemonic_{{ (chain.chain | replace('-', '_')) }}.txt`, "mnemonic_{{ (chain.chain | replace('-', '_')) }}");
 {% endfor %}
 
 export default {
@@ -41,14 +41,14 @@ export default {
   blockchains: [
 {% for chain in testnet_services_testnets %}
     {
-      name: "{{ chain }}",
+      name: "{{ chain.chain }}",
       endpoint: {
         // make sure that CORS is enabled in rpc section in config.toml
         // cors_allowed_origins = ["*"]
-        rpc_endpoint: "https://{{ chain }}-testnet-rpc.interchainsdk.io:443/",
+        rpc_endpoint: "https://{{ chain.chain }}-testnet-rpc.interchainsdk.io:443/",
       },
       sender: {
-        mnemonic: mnemonic_{{ (chain | replace('-', '_')) }},
+        mnemonic: mnemonic_{{ (chain.chain | replace('-', '_')) }},
         option: {
           hdPaths: [stringToPath("m/44'/118'/0'/0/0")],
           prefix: "cosmos", // human readable address prefix
