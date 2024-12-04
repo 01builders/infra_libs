@@ -2,7 +2,7 @@
 - name: Get faucet keys | {{ item }}
   containers.podman.podman_container_exec:
     name: "{{ item }}-node"
-    command: ./node keys show faucet --home /config
+    command: "{{ testnet_services_command_prefix | default('') }}./node keys show faucet --home /config"
     workdir: /app
   register: faucet_key
   loop: "{{ testnet_services_testnets }}"
