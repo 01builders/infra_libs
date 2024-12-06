@@ -1,7 +1,7 @@
 ---
 - name: Quadlet
   block:
-    - name: Quadlet volume file | {{ item.name | replace('-node', '') }}
+    - name: Quadlet | Volume file | {{ item.name | replace('-node', '') }}
       containers.podman.podman_volume:
         name: "{{ testnet_container_name }}"
         state: quadlet
@@ -9,9 +9,9 @@
           app: "{{ testnet_container_name }}"
       notify: Restart Cosmos node {{ testnet_container_name }}
 
-    - name: Set quadlet container labels | {{ item.name | replace('-node', '') }}
+    - name: Quadlet | Set container labels | generic | {{ item.name | replace('-node', '') }}
       ansible.builtin.set_fact:
-        traefik_labels:
+        traefik_labels_generic:
           - key: traefik.enable
             value: "true"
           - key: traefik.http.middlewares.{{ testnet_container_name }}-headers.headers.accesscontrolalloworiginlist
@@ -22,8 +22,6 @@
           # In addition, a burst of 10 requests is allowed.
           - key: traefik.http.middlewares.ratelimit.ratelimit.burst
             value: "10"
-          - key: traefik.http.routers.{{ testnet_container_name }}.rule
-            value: Host'(`{{ testnet_container_name | replace('-node', '') }}-testnet-api.{{ public_domain }}`)'
           - key: traefik.http.routers.{{ testnet_container_name }}.entrypoints
             value: websecure
           - key: traefik.http.routers.{{ testnet_container_name }}.tls
@@ -39,7 +37,7 @@
           - key: traefik.http.routers.{{ testnet_container_name }}.service
             value: "{{ testnet_container_name }}"
           - key: traefik.http.services.{{ testnet_container_name }}.loadbalancer.server.port
-            value: 20017
+            value: 1317
           - key: traefik.http.routers.{{ testnet_container_name }}-grpc.rule
             value: Host'(`{{ testnet_container_name | replace('-node', '') }}-testnet-grpc.{{ public_domain }}`)'
           - key: traefik.http.routers.{{ testnet_container_name }}-grpc.entrypoints
@@ -97,6 +95,30 @@
           - key: traefik.http.services.{{ testnet_container_name }}-rpc.loadbalancer.server.port
             value: 26657
 
+    - name: Quadlet | Set container labels | not v2 | {{ item.name | replace('-node', '') }}
+      when: testnet_container_name != "v2-052-1-node"
+      ansible.builtin.set_fact:
+        traefik_labels_not_v2:
+          - key: traefik.http.routers.{{ testnet_container_name }}.rule
+            value: Host'(`{{ testnet_container_name | replace('-node', '') }}-testnet-api.{{ public_domain }}`)'
+
+    - name: Quadlet | Set container labels | v2* | {{ item.name | replace('-node', '') }}
+      when: testnet_container_name == "v2-052-1-node"
+      ansible.builtin.set_fact:
+        traefik_labels_v2:
+          - key: traefik.http.routers.{{ testnet_container_name }}.rule
+            value: Host'(`{{ testnet_container_name | replace('-node', '') }}-testnet-grpcgw.{{ public_domain }}`)'
+
+    - name: Quadlet | Set vars | not v2 | {{ item.name | replace('-node', '') }}
+      when: testnet_container_name != "v2-052-1-node"
+      ansible.builtin.set_fact:
+        traefik_labels: "{{ traefik_labels_generic + traefik_labels_not_v2 }}"
+
+    - name: Quadlet | Set vars | v2 | {{ item.name | replace('-node', '') }}
+      when: testnet_container_name == "v2-052-1-node"
+      ansible.builtin.set_fact:
+        traefik_labels: "{{ traefik_labels_generic + traefik_labels_v2 }}"
+
     - name: Quadlet container file | {{ item.name | replace('-node', '') }}
       containers.podman.podman_container:
         name: "{{ testnet_container_name }}"
@@ -134,7 +156,7 @@
         state: started
         daemon_reload: true
 
-    - name: Alloy | Edit configuration
+    - name: Alloy | Edit configuration | {{ item.name | replace('-node', '') }}
       ansible.builtin.blockinfile:
         path: "{{ testnet_config_path }}/config.alloy"
         marker: /// {mark} ANSIBLE MANAGED BLOCK - cosmos_sdk_{{ item.name | replace('-node', '') | replace('-', '_') }}
@@ -150,7 +172,7 @@
       notify: Restart alloy
 
   rescue:
-    - name: Healthchecks.io | Send a fail signal
+    - name: Healthchecks.io | Send a fail signal | {{ item.name | replace('-node', '') }}
       when: semaphore_scheduled is defined and semaphore_scheduled | bool
       community.healthchecksio.ping:
         state: present
@@ -159,7 +181,7 @@
         api_key: "{{ healthchecksio_api_key }}"
       changed_when: false
 
-    - name: Something went wrong
+    - name: Something went wrong | {{ item.name | replace('-node', '') }}
       ansible.builtin.fail:
         msg: An error occured
       when: not ansible_check_mode
