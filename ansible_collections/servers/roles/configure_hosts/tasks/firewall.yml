@@ -1,6 +1,6 @@
 ---
 - name: Firewall | Allow OpenSSH
-  when: configure_hosts_ufw_close_ssh is not defined or not configure_hosts_ufw_close_ssh | bool
+  when: configure_hosts_ufw_open_ssh is defined or configure_hosts_ufw_open_ssh | bool
   community.general.ufw:
     rule: limit
     name: OpenSSH
