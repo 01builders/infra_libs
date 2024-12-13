@@ -1,0 +1,3 @@
+---
+chain_xion_alloy_config_path: /root/.local/share/alloy
+chain_xion_vmalert_config_path: /root/.local/share/vmalert

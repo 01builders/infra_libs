@@ -1,0 +1,111 @@
+---
+- name: Xiond | Firewall Allow Incoming on public interface
+  community.general.ufw:
+    rule: allow
+    interface: "{{ public_interface }}"
+    direction: in
+    port: "{{ item.port }}"
+    proto: "{{ item.proto }}"
+  loop:
+    - { port: "{{ chain_xion_xiond_p2p_port }}", proto: tcp }
+
+- name: Xiond | Check configuration file
+  ansible.builtin.stat:
+    path: /home/{{ chain_xion_user }}/.xiond/config/config.toml
+  register: node_init
+
+- name: Xiond | Initialize Xion Validator node
+  when: not node_init.stat.exists # noqa: no-handler
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      source ~/.bash_profile
+      xiond init binary-builders --chain-id {{ chain_xion_chain_id }}
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ chain_xion_user }}"
+  changed_when: true
+
+- name: Xiond | Bootstrap addrbook.json
+  when: not node_init.stat.exists # noqa: no-handler
+  ansible.builtin.get_url:
+    url: https://snapshots.polkachu.com/addrbook/xion/addrbook.json
+    dest: /home/{{ chain_xion_user }}/.xiond/config/addrbook.json
+    mode: "0644"
+    force: true
+  become: true
+  become_user: "{{ chain_xion_user }}"
+
+- name: Xiond | Bootstrap genesis.json
+  when: not node_init.stat.exists # noqa: no-handler
+  ansible.builtin.get_url:
+    url: https://snapshots.polkachu.com/genesis/xion/genesis.json
+    dest: /home/{{ chain_xion_user }}/.xiond/config/genesis.json
+    mode: "0644"
+    force: true
+  become: true
+  become_user: "{{ chain_xion_user }}"
+
+- name: Xiond | app.toml
+  ansible.builtin.replace:
+    path: /home/{{ chain_xion_user }}/.xiond/config/app.toml
+    regexp: "{{ item.regexp }}"
+    replace: "{{ item.line }}"
+  notify: Restart xiond-{{ chain_xion_network }}
+  loop:
+    # Set gas price
+    - regexp: ^(minimum-gas-prices\s*=\s*).*$
+      line: \1"0.025uxion"
+    # Tendermint block pruning
+    - regexp: ^(pruning\s*=\s*).*$
+      line: \1"custom"
+    # Tendermint block pruning
+    - regexp: ^(pruning-keep-recent\s*=\s*).*$
+      line: \1"100"
+    # Tendermint block pruning
+    - regexp: ^(pruning-keep-every\s*=\s*).*$
+      line: \1"0"
+    # Tendermint block pruning
+    - regexp: ^(pruning-interval\s*=\s*).*$
+      line: \1"10"
+    # Tendermint block pruning
+    - regexp: ^(min-retain-blocks\s*=\s*).*$
+      line: \1"1"
+
+- name: Xiond | config.toml
+  ansible.builtin.replace:
+    path: /home/{{ chain_xion_user }}/.xiond/config/config.toml
+    regexp: "{{ item.regexp }}"
+    replace: "{{ item.line }}"
+  notify: Restart xiond-{{ chain_xion_network }}
+  loop:
+    # Listen on 0.0.0.0 (RPC)
+    - regexp: (^\[rpc\]\n\n# TCP or UNIX socket address for the RPC server to listen on\n)laddr = "tcp://[^"]*"
+      line: \1laddr = "tcp://0.0.0.0:{{ chain_xion_xiond_rpc_port }}"
+    # Listen on 0.0.0.0 (P2P)
+    - regexp: (^\[p2p\]\n\n# Address to listen for incoming connections\n)laddr = "tcp://[^"]*"
+      line: \1laddr = "tcp://0.0.0.0:{{ chain_xion_xiond_p2p_port }}"
+    # Set indexer to null
+    - regexp: ^(indexer\s*=\s*).*$
+      line: \1"null"
+    # Enable prometheus
+    - regexp: ^(prometheus\s*=\s*).*$
+      line: \1true
+    # Listen on 0.0.0.0 (Prometheus)
+    - regexp: ^(prometheus_listen_addr\s*=\s*).*$
+      line: \1":{{ chain_xion_xiond_prometheus_port }}"
+    # Discard abci responses (saves disk space)
+    - regexp: ^(discard_abci_responses\s*=\s*).*$
+      line: \1true
+
+- name: Xiond | client.toml
+  ansible.builtin.replace:
+    path: /home/{{ chain_xion_user }}/.xiond/config/client.toml
+    regexp: "{{ item.regexp }}"
+    replace: "{{ item.line }}"
+  notify: Restart xiond-{{ chain_xion_network }}
+  loop:
+    # Listen on 0.0.0.0 (RPC)
+    - regexp: ^(chain-id\s*=\s*).*$
+      line: \1"{{ chain_xion_chain_id }}"
