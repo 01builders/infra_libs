@@ -8,9 +8,7 @@
 - name: Deploy configuration
   ansible.builtin.copy:
     dest: "{{ github_notifier_config_path }}/config.yaml"
-    content: |
-      receivers:
-
+    content: "{{ github_notifier_config }}"
     mode: "0644"
 
 - name: Quadlet volume file

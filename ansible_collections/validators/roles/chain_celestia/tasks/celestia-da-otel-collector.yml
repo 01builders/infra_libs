@@ -141,5 +141,5 @@
     src: bridge-alerts.yml.j2
     dest: "{{ chain_celestia_vmalert_config_path }}/celestia-bridge-{{ chain_celestia_chain_id }}.yml"
     mode: "0644"
-  delegate_to: coreservices
+  delegate_to: observability
   notify: Restart vmalert

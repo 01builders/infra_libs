@@ -38,7 +38,7 @@
   become: true
   become_user: "{{ configure_hosts_users_username }}"
 
-- name: Fish | config.fish
+- name: Fish | starship.toml
   ansible.builtin.copy:
     src: starship.toml
     dest: ~/.config/starship.toml

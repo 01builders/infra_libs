@@ -24,6 +24,9 @@
     network: host
     volumes:
       - uptime-kuma.volume:/app/data:bind
+      - /run/podman/podman.sock:/run/podman/podman.sock:z
+    env:
+      UPTIME_KUMA_PORT: 3001
     label: "{{ quadlet_label }}"
     quadlet_options:
       - |

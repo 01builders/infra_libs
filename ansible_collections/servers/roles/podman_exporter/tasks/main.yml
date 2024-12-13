@@ -42,7 +42,6 @@
   ansible.builtin.blockinfile:
     path: "{{ podman_exporter_config_path }}/config.alloy"
     marker: /// {mark} ANSIBLE MANAGED BLOCK - podman_exporter
-    append_newline: true
     block: |
       prometheus.scrape "podman_exporter" {
         clustering {

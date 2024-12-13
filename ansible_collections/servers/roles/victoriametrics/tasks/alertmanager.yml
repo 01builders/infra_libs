@@ -20,6 +20,15 @@
     mode: "0644"
   notify: Restart alertmanager
 
+- name: Alertmanager | Deploy templates
+  ansible.builtin.copy:
+    src: "alertmanager/{{ item }}"
+    dest: "{{ victoriametrics_alertmanager_config_path }}/{{ item }}"
+    mode: "0644"
+  notify: Restart alertmanager
+  loop:
+    - monzo.tmpl
+
 - name: Alertmanager | Quadlet container file
   containers.podman.podman_container:
     name: alertmanager
@@ -28,11 +37,13 @@
     command:
       - --config.file=/config/alertmanager.yml
       - --storage.path=/data
+      - --web.external-url=http://{{ ansible_hostname }}.{{ public_domain }}:9093
     ports:
       - 9093:9093
     volumes:
       - alertmanager.volume:/data:bind
       - "{{ victoriametrics_alertmanager_config_path }}/alertmanager.yml:/config/alertmanager.yml"
+      - "{{ victoriametrics_alertmanager_config_path }}/monzo.tmpl:/config/monzo.tmpl"
     label:
       app: alertmanager
     quadlet_options:

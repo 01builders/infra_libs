@@ -10,7 +10,6 @@
     path: "{{ alloy_config_path }}/config.alloy"
     marker: /// {mark} ANSIBLE MANAGED BLOCK - Generic
     create: true
-    append_newline: true
     mode: "0644"
     block: |
       //

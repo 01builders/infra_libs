@@ -4,7 +4,7 @@
     name: vmalert
     daemon_reload: true
     state: restarted
-  delegate_to: coreservices
+  delegate_to: observability
 
 - name: Restart alloy
   ansible.builtin.systemd_service:

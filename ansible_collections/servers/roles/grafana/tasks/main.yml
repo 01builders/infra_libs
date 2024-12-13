@@ -41,6 +41,8 @@
     volumes:
       - grafana.volume:/var/lib/grafana:bind
       - "{{ grafana_config_path }}/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yaml:ro"
+    ports:
+      - 3000:3000
     env: "{{ quadlet_env }}"
     label: "{{ quadlet_label }}"
     quadlet_options:

@@ -33,7 +33,7 @@
     src: cosmos-validator-generic.yml.j2
     dest: "{{ observability_vmalert_config_path }}/cosmos-validator-generic.yml"
     mode: "0644"
-  delegate_to: coreservices
+  delegate_to: observability
   notify: Restart vmalert
 
 - name: VMAlert | Deploy cosmos validator alerts by chain
@@ -42,5 +42,5 @@
     src: cosmos-validator-by-chain.yml.j2
     dest: "{{ observability_vmalert_config_path }}/cosmos-validator-{{ observability_chain_id }}.yml"
     mode: "0644"
-  delegate_to: coreservices
+  delegate_to: observability
   notify: Restart vmalert

@@ -52,7 +52,6 @@
   ansible.builtin.blockinfile:
     path: "{{ node_exporter_config_path }}/config.alloy"
     marker: /// {mark} ANSIBLE MANAGED BLOCK - node_exporter
-    append_newline: true
     block: |
       prometheus.scrape "node_exporter" {
         targets = [{

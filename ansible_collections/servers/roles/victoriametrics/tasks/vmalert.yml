@@ -25,6 +25,7 @@
       - --remoteWrite.url=http://host.containers.internal:8428
       - --notifier.url=http://host.containers.internal:9093
       - --rule=/etc/alerts/*.yml
+      - --external.url={{ victoriametrics_grafana_root_url }}
       - '{% raw %}-external.alert.source=explore?orgId=1&left={"datasource":"VictoriaMetrics","queries":[{"expr":{{.Expr|jsonEscape|queryEscape}},"refId":"A"}],"range":{"from":"{{ .ActiveAt.UnixMilli }}","to":"now"}}{% endraw %}'
     ports:
       - 8880:8880

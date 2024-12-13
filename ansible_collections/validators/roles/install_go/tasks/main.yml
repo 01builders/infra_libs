@@ -35,31 +35,44 @@
         path: "/tmp/go{{ install_go_version }}.linux-amd64.tar.gz"
         state: absent
 
-    - name: Ensure Go binary path is in the remote user's .bash_profile
-      ansible.builtin.copy:
-        dest: /home/{{ install_go_user }}/.bash_profile
-        content: |
-          export PATH=$PATH:/usr/local/go/{{ install_go_version }}/go/bin:/home/{{ install_go_user }}/go/bin
-        mode: "0644"
-        owner: "{{ install_go_user }}"
-        group: users
-
-    - name: Source .bash_profile and check Go version
-      ansible.builtin.shell: |
-        source /home/{{ install_go_user }}/.bash_profile
-        go version
-      args:
-        executable: /bin/bash
-      register: go_version_output
-      failed_when: "'go version' not in go_version_output.stdout"
-      changed_when: true
-
-    - name: Print Go version
-      ansible.builtin.debug:
-        msg: "{{ go_version_output.stdout }}"
-
   rescue:
     - name: Something went wrong
       ansible.builtin.fail:
         msg: An error occured
       when: not ansible_check_mode
+
+- name: .bash_profile
+  ansible.builtin.blockinfile:
+    path: /home/{{ install_go_user }}/.bash_profile
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - Go paths"
+    create: true
+    block: |
+      export PATH=$PATH:/usr/local/go/{{ install_go_version }}/go/bin:/home/{{ install_go_user }}/go/bin
+    mode: "0644"
+    owner: "{{ install_go_user }}"
+    group: users
+
+- name: Fish config
+  ansible.builtin.copy:
+    dest: ~/.config/fish/conf.d/go.fish
+    content: |
+      # Path Configuration
+      fish_add_path /usr/local/go/{{ install_go_version }}/go/bin
+      fish_add_path /home/{{ install_go_user }}/go/bin
+    mode: "644"
+  become: true
+  become_user: "{{ install_go_user }}"
+
+- name: Source .bash_profile and check Go version
+  ansible.builtin.shell: |
+    source /home/{{ install_go_user }}/.bash_profile
+    go version
+  args:
+    executable: /bin/bash
+  register: go_version_output
+  failed_when: "'go version' not in go_version_output.stdout"
+  changed_when: false
+
+- name: Print Go version
+  ansible.builtin.debug:
+    msg: "{{ go_version_output.stdout }}"
