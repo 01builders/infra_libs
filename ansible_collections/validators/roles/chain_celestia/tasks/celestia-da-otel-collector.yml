@@ -1,24 +1,28 @@
 ---
+- name: Celestia-da-otel-collector | Set vars
+  ansible.builtin.set_fact:
+    service_name: celestia-da-otel-collector-{{ chain_celestia_network }}
+
 # https://github.com/kjnodes/celestia-bridge-monitoring/blob/main/README.md
-- name: Celestia-bridge | Set testnet vars
+- name: Celestia-da-otel-collector | Set testnet vars
   when: chain_celestia_network == "mocha"
   ansible.builtin.set_fact:
     remote_otel_endpoint: https://otel.celestia-mocha.com
 
-- name: Celestia-bridge | Set mainnet vars
+- name: Celestia-da-otel-collector | Set mainnet vars
   when: chain_celestia_network == "mainnet"
   ansible.builtin.set_fact:
     remote_otel_endpoint: https://otel.celestia.observer
 
 - name: Create configuration directory
   ansible.builtin.file:
-    path: "{{ chain_celestia_config_path }}"
+    path: "{{ chain_celestia_da_otel_config_path }}"
     state: directory
     mode: "0700"
 
 - name: Celestia-da-otel-collector | Deploy configuration
   ansible.builtin.copy:
-    dest: "{{ chain_celestia_config_path }}/otel-config.yml"
+    dest: "{{ chain_celestia_da_otel_config_path }}/otel-config.yml"
     content: |
       receivers:
         otlp:
@@ -58,19 +62,19 @@
                       host: '0.0.0.0'
                       port: {{ chain_celestia_da_otel_otel_prometheus_port }}
     mode: "0644"
-  notify: Restart celestia-da-otel-collector-{{ chain_celestia_chain_id }}
+  notify: Restart {{ service_name }}
 
 - name: Celestia-da-otel-collector | Quadlet container file
   containers.podman.podman_container:
-    name: celestia-da-otel-collector-{{ chain_celestia_chain_id }}
+    name: "{{ service_name }}"
     image: "{{ chain_celestia_da_otel_image }}"
     state: quadlet
     command: --config=/config/otel-config.yaml
     network: host
     volume:
-      - "{{ chain_celestia_config_path }}/otel-config.yml:/config/otel-config.yaml"
+      - "{{ chain_celestia_da_otel_config_path }}/otel-config.yml:/config/otel-config.yaml"
     label:
-      app: celestia-{{ chain_celestia_chain_id }}
+      app: celestia-{{ chain_celestia_network }}
     quadlet_options:
       - |
 
@@ -86,23 +90,23 @@
 
         [Install]
         WantedBy=default.target
-  notify: Restart celestia-da-otel-collector-{{ chain_celestia_chain_id }}
+  notify: Restart {{ service_name }}
 
 - name: Celestia-da-otel-collector | Add sudoers file
   ansible.builtin.copy:
-    dest: "/etc/sudoers.d/{{ chain_celestia_user }}-da-otel-collector-{{ chain_celestia_chain_id }}"
+    dest: "/etc/sudoers.d/{{ chain_celestia_user }}-{{ service_name }}"
     content: |
-      {{ chain_celestia_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl start celestia-da-otel-collector-{{ chain_celestia_network }}.service
-      {{ chain_celestia_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop celestia-da-otel-collector-{{ chain_celestia_network }}.service
-      {{ chain_celestia_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart celestia-da-otel-collector-{{ chain_celestia_network }}.service
-      {{ chain_celestia_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl status celestia-da-otel-collector-{{ chain_celestia_network }}.service
+      {{ chain_celestia_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl start {{ service_name }}.service
+      {{ chain_celestia_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop {{ service_name }}.service
+      {{ chain_celestia_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart {{ service_name }}.service
+      {{ chain_celestia_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl status {{ service_name }}.service
     mode: "0440"
     validate: /usr/sbin/visudo -cf %s
 
 
 - name: Celestia-da-otel-collector | Enable systemd service
   ansible.builtin.systemd:
-    name: celestia-da-otel-collector-{{ chain_celestia_chain_id }}
+    name: "{{ service_name }}"
     enabled: true
     state: started
     daemon_reload: true
@@ -110,10 +114,10 @@
 - name: Celestia-da-otel-collector | Alloy | Edit configuration
   ansible.builtin.blockinfile:
     path: "{{ chain_celestia_alloy_config_path }}/config.alloy"
-    marker: /// {mark} ANSIBLE MANAGED BLOCK - celestia-da-otel-collector-{{ chain_celestia_chain_id }}
+    marker: /// {mark} ANSIBLE MANAGED BLOCK - {{ service_name }}
     append_newline: true
     block: |
-      prometheus.scrape "chain_celestia_da_otel_collector_otel_{{ chain_celestia_chain_id | replace('-', '_') }}" {
+      prometheus.scrape "celestia_da_otel_collector_otel_{{ chain_celestia_chain_id | replace('-', '_') }}" {
         clustering {
           enabled = true
         }
@@ -123,7 +127,7 @@
         forward_to      = [prometheus.remote_write.victoriametrics.receiver]
       }
 
-      prometheus.scrape "chain_celestia_da_otel_collector_da_{{ chain_celestia_chain_id | replace('-', '_') }}" {
+      prometheus.scrape "celestia_da_otel_collector_da_{{ chain_celestia_chain_id | replace('-', '_') }}" {
         clustering {
           enabled = true
         }

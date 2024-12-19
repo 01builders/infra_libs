@@ -1,5 +1,9 @@
 ---
-- name: Celestia-bridge | Set testnet vars
+- name: Celestia-node | Set vars
+  ansible.builtin.set_fact:
+    service_name: bridge-celestia-node-{{ chain_celestia_network }}
+
+- name: Celestia-node | Set testnet vars
   when: chain_celestia_network == "mocha"
   ansible.builtin.set_fact:
     chain_celestia_bridge_conf_dir: .celestia-bridge-{{ chain_celestia_chain_id }}
@@ -7,13 +11,13 @@
       - --archival
       - --p2p.network {{ chain_celestia_network }}
       - --core.ip 127.0.0.1
-      - --core.rpc.port {{ chain_celestia_appd_rpc_port }}
-      - --core.grpc.port {{ chain_celestia_appd_grpc_port }}
+      - --core.rpc.port {{ chain_celestia_bridge_app_rpc_port }}
+      - --core.grpc.port {{ chain_celestia_bridge_app_grpc_port }}
       - --metrics
       - --metrics.tls=false
       - --metrics.endpoint otel.celestia-mocha.com
 
-- name: Celestia-bridge | Set mainnet vars
+- name: Celestia-node | Set mainnet vars
   when: chain_celestia_network == "mainnet"
   ansible.builtin.set_fact:
     chain_celestia_bridge_conf_dir: .celestia-bridge
@@ -21,8 +25,8 @@
       - --archival
       - --p2p.network celestia
       - --core.ip 127.0.0.1
-      - --core.rpc.port {{ chain_celestia_appd_rpc_port }}
-      - --core.grpc.port {{ chain_celestia_appd_grpc_port }}
+      - --core.rpc.port {{ chain_celestia_bridge_app_rpc_port }}
+      - --core.grpc.port {{ chain_celestia_bridge_app_grpc_port }}
       # - --core.ip rpc.celestia.pops.one
       # - --core.rpc.port 26657
       # - --core.grpc.port 9090
@@ -30,7 +34,7 @@
       - --metrics.tls=false
       - --metrics.endpoint 127.0.0.1:{{ chain_celestia_bridge_otlp_http_port }}
 
-- name: Celestia-bridge | Ensure celestia-node repository is present
+- name: Celestia-node | Ensure celestia-node repository is present
   ansible.builtin.git:
     repo: https://github.com/celestiaorg/celestia-node.git
     dest: "/home/{{ chain_celestia_user }}/celestia-node"
@@ -39,7 +43,7 @@
   become_user: "{{ chain_celestia_user }}"
   register: repo_cloned
 
-- name: Celestia-bridge | Build
+- name: Celestia-node | Build
   when: repo_cloned.changed # noqa: no-handler
   ansible.builtin.shell:
     chdir: /home/{{ chain_celestia_user }}/celestia-node
@@ -52,9 +56,9 @@
   become: true
   become_user: "{{ chain_celestia_user }}"
   changed_when: true
-  notify: Restart celestia-bridge-{{ chain_celestia_network }}
+  notify: Restart {{ service_name }}
 
-- name: Celestia-bridge | Build
+- name: Celestia-node | Build
   when: repo_cloned.changed # noqa: no-handler
   ansible.builtin.shell:
     chdir: /home/{{ chain_celestia_user }}/celestia-node
@@ -65,7 +69,7 @@
     executable: /bin/bash
   changed_when: true
 
-- name: Celestia-bridge | Copy binary to home folder
+- name: Celestia-node | Copy binary to home folder
   when: repo_cloned.changed # noqa: no-handler
   ansible.builtin.copy:
     src: /usr/local/bin/celestia
@@ -74,15 +78,15 @@
     mode: "0755"
     owner: "{{ chain_celestia_user }}"
     group: users
-  notify: Restart celestia-bridge-{{ chain_celestia_network }}
+  notify: Restart {{ service_name }}
 
-- name: Celestia-bridge | Remove binary from /usr/local/bin
+- name: Celestia-node | Remove binary from /usr/local/bin
   when: repo_cloned.changed # noqa: no-handler
   ansible.builtin.file:
     path: /usr/local/bin/celestia
     state: absent
 
-- name: Celestia-bridge | Firewall Allow Incoming on public interface
+- name: Celestia-node | Firewall Allow Incoming on public interface
   community.general.ufw:
     rule: allow
     interface: "{{ public_interface }}"
@@ -93,19 +97,19 @@
     - { port: "2121", proto: tcp } # P2P
     - { port: "2121", proto: udp } # P2P
 
-- name: Celestia-bridge | Check configuration file
+- name: Celestia-node | Check configuration file
   ansible.builtin.stat:
     path: /home/{{ chain_celestia_user }}/{{ chain_celestia_bridge_conf_dir }}/.lock
   register: node_init
 
-- name: Celestia-bridge | Initialize Celestia Bridge node
+- name: Celestia-node | Initialize Celestia Bridge node
   when: not node_init.stat.exists # noqa: no-handler
   ansible.builtin.pause:
     prompt: You must manually init the bridge node. Please log into the server and execute `celestia bridge init --p2p.network {{ chain_celestia_chain_id }}`, then backup the mnemonic.
 
-- name: Celestia-bridge | Create systemd service file
+- name: Celestia-node | Create systemd service file
   ansible.builtin.copy:
-    dest: /etc/systemd/system/celestia-bridge-{{ chain_celestia_network }}.service
+    dest: /etc/systemd/system/{{ service_name }}.service
     content: |
       [Unit]
       Description=Celestia-bridge-{{ chain_celestia_network }} (Data Availability)
@@ -124,22 +128,22 @@
       [Install]
       WantedBy=multi-user.target
     mode: "0644"
-  notify: Restart celestia-bridge-{{ chain_celestia_network }}
+  notify: Restart {{ service_name }}
 
-- name: Celestia-bridge | Add sudoers file
+- name: Celestia-node | Add sudoers file
   ansible.builtin.copy:
     dest: "/etc/sudoers.d/{{ chain_celestia_user }}-bridge-{{ chain_celestia_network }}"
     content: |
-      {{ chain_celestia_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl start celestia-bridge-{{ chain_celestia_network }}.service
-      {{ chain_celestia_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop celestia-bridge-{{ chain_celestia_network }}.service
-      {{ chain_celestia_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart celestia-bridge-{{ chain_celestia_network }}.service
-      {{ chain_celestia_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl status celestia-bridge-{{ chain_celestia_network }}.service
+      {{ chain_celestia_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl start {{ service_name }}.service
+      {{ chain_celestia_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop {{ service_name }}.service
+      {{ chain_celestia_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart {{ service_name }}.service
+      {{ chain_celestia_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl status {{ service_name }}.service
     mode: "0440"
     validate: /usr/sbin/visudo -cf %s
 
-- name: Celestia-bridge | Enable systemd service
+- name: Celestia-node | Enable systemd service
   ansible.builtin.systemd:
-    name: celestia-bridge-{{ chain_celestia_network }}
+    name: "{{ service_name }}"
     enabled: true
     state: started
     daemon_reload: true
