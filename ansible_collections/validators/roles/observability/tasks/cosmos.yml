@@ -1,0 +1,56 @@
+---
+- name: Alloy | Cosmos-SDK | Edit configuration
+  when: observability_prometheus_sdk_prometheus_port is defined
+  ansible.builtin.blockinfile:
+    path: "{{ observability_alloy_config_path }}/config.alloy"
+    marker: /// {mark} ANSIBLE MANAGED BLOCK - {{ observability_chain_id }} - cosmos-sdk
+    append_newline: true
+    block: |
+      prometheus.scrape "cosmos_sdk_{{ observability_chain_id | replace('-', '_') }}" {
+        clustering {
+          enabled = true
+        }
+        targets = [{
+          __address__ = "{{ ansible_hostname }}:{{ observability_prometheus_sdk_prometheus_port }}",
+        }]
+        forward_to      = [prometheus.remote_write.victoriametrics.receiver]
+      }
+
+  notify: Restart alloy
+
+- name: Alloy | Cosmos-validator-watcher | Edit configuration
+  when: observability_prometheus_watcher_prometheus_port is defined
+  ansible.builtin.blockinfile:
+    path: "{{ observability_alloy_config_path }}/config.alloy"
+    marker: /// {mark} ANSIBLE MANAGED BLOCK - {{ observability_chain_id }} - cosmos-validator-watcher
+    append_newline: true
+    block: |
+      prometheus.scrape "cosmos_validator_watcher_{{ observability_chain_id | replace('-', '_') }}" {
+        clustering {
+          enabled = true
+        }
+        targets = [{
+          __address__ = "{{ ansible_hostname }}:{{ observability_prometheus_watcher_prometheus_port }}",
+        }]
+        forward_to      = [prometheus.remote_write.victoriametrics.receiver]
+      }
+
+  notify: Restart alloy
+
+- name: VMAlert | Deploy cosmos-sdk alerts by chain
+  when: observability_alerts is defined and observability_alerts | bool and observability_prometheus_sdk_prometheus_port is defined
+  ansible.builtin.template:
+    src: cosmos-sdk-by-chain.yml.j2
+    dest: "{{ observability_vmalert_config_path }}/cosmos-sdk-{{ observability_chain_id }}.yml"
+    mode: "0644"
+  delegate_to: observability
+  notify: Restart vmalert
+
+- name: VMAlert | Deploy cosmos validator watcher alerts by chain
+  when: observability_alerts is defined and observability_alerts | bool and observability_prometheus_watcher_prometheus_port is defined
+  ansible.builtin.template:
+    src: cosmos-validator-watcher-by-chain.yml.j2
+    dest: "{{ observability_vmalert_config_path }}/cosmos-validator-watcher-{{ observability_chain_id }}.yml"
+    mode: "0644"
+  delegate_to: observability
+  notify: Restart vmalert

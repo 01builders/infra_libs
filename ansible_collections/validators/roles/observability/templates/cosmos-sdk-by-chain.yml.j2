@@ -1,0 +1,37 @@
+groups:
+  - name: cosmos-sdk - {{ observability_chain_id }}
+    rules:
+
+    - alert: InstanceDown
+      expr: (sum(up{job="prometheus.scrape.cosmos_sdk_{{ observability_chain_id | replace('-', '_') }}"}) == 0) or absent(up{job="prometheus.scrape.cosmos_sdk_{{ observability_chain_id | replace('-', '_') }}"})
+      for: 3m
+      annotations:
+        title: "Instance {% raw %}{{ $labels.instance }}{% endraw %} down"
+        description: "{% raw %}{{ $labels.job }} on {{ $labels.instance }}{% endraw %} has been down for more than 3 minutes"
+      labels:
+        severity: critical
+        service: validator
+        component: cosmos-sdk
+        grafanaDashboardUrl: "http://{{ hostvars['observability'].ansible_host }}.{{ public_domain }}:3000/d/cosmos-validator-watcher/cosmos-validator-watcher-by-chain?var-chain_id={{ observability_chain_id }}"
+
+    - alert: TooFewPeers
+      expr: tendermint_p2p_peers{chain_id="{{ observability_chain_id }}"} < 2 or cometbft_p2p_peers{chain_id="{{ observability_chain_id }}"} < 2
+      for: 5m
+      labels:
+        severity: warning
+        service: validator
+        component: cosmos-sdk
+      annotations:
+        description: "{% raw %}P2P Peers for chain `{{ $labels.chain_id }}` validator on `{{ $labels.instance }}` is lower than threshold (current value: {{ $value }}){% endraw %}"
+        grafanaDashboardUrl: http://{{ hostvars['observability'].ansible_host }}.{{ public_domain }}:3000/d/cosmos-validator-watcher/cosmos-validator-watcher-by-chain?var-chain_id={{ observability_chain_id }}
+
+    - alert: DegradedSyncing
+      expr: increase(tendermint_consensus_latest_block_height{chain_id="{{ observability_chain_id }}"}[5m]) < 10 or increase(cometbft_consensus_latest_block_height{chain_id="{{ observability_chain_id }}"}[5m]) < 10
+      for: 5m
+      labels:
+        severity: warning
+        service: validator
+        componnent: cosmos-sdk
+      annotations:
+        description: "{% raw %}Degraded syncing performance for Chain `{{ $labels.chain_id }}` validator on `{{ $labels.instance }}`{% endraw %}"
+        grafanaDashboardUrl: http://{{ hostvars['observability'].ansible_host }}.{{ public_domain }}:3000/d/cosmos-validator-watcher/cosmos-validator-watcher-by-chain?var-chain_id={{ observability_chain_id }}

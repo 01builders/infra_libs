@@ -1,6 +1,6 @@
 {% raw %}
 groups:
-  - name: Cosmos Validators - Generic
+  - name: Global
     rules:
 
     - alert: NodeFilesystemReadonly
@@ -13,7 +13,7 @@ groups:
         description: 'Filesystem "{{ $labels.mountpoint }}" on "{{ $labels.instance }}" is read-only.'
 
     - alert: NodeDiskFull1W
-      expr: predict_linear(node_filesystem_free_bytes{fstype!~"rootfs|nfs4|tmpfs", instance=~".*validator.*"}[4h], 7 * 24 * 3600) < 0
+      expr: predict_linear(node_filesystem_free_bytes{fstype!~"rootfs|nfs4|tmpfs", instance=~".*validator.*", instance!~".*hyperliquid.*"}[4h], 7 * 24 * 3600) < 0
       for: 5m
       labels:
         severity: warning
@@ -21,14 +21,14 @@ groups:
       annotations:
         description: 'Filesystem "{{ $labels.mountpoint }}" on "{{ $labels.instance }}" will be out of diskspace within 1 week.'
 
-    - alert: NodeDiskFull2H
-      expr: predict_linear(node_filesystem_free_bytes{fstype!~"rootfs|nfs4|tmpfs", instance=~".*validator.*"}[4h], 2 * 3600) < 0
+    - alert: NodeDiskFull12H
+      expr: predict_linear(node_filesystem_free_bytes{fstype!~"rootfs|nfs4|tmpfs", instance=~".*validator.*"}[4h], 12 * 3600) < 0
       for: 5m
       labels:
         severity: critical
         component: node_exporter
       annotations:
-        description: 'Filesystem "{{ $labels.mountpoint }}" on "{{ $labels.instance }}" will be out of diskspace within 2 hours.'
+        description: 'Filesystem "{{ $labels.mountpoint }}" on "{{ $labels.instance }}" will be out of diskspace within 12 hours.'
 
     - alert: NodeDiskFull
       expr: node_filesystem_avail_bytes/node_filesystem_size_bytes < 0.01
@@ -48,14 +48,14 @@ groups:
       annotations:
         description: 'Filesystem "{{ $labels.mountpoint }}" on "{{ $labels.instance }}" will be out of inode numbers within 1 week.'
 
-    - alert: NodeInodeFull2H
-      expr: predict_linear(node_filesystem_files_free{fstype!~"rootfs|nfs4|tmpfs", instance=~".*validator.*"}[4h], 2 * 3600) < 0
+    - alert: NodeInodeFull12H
+      expr: predict_linear(node_filesystem_files_free{fstype!~"rootfs|nfs4|tmpfs", instance=~".*validator.*"}[4h], 12 * 3600) < 0
       for: 5m
       labels:
         severity: critical
         component: node_exporter
       annotations:
-        description: 'Filesystem "{{ $labels.mountpoint }}" on "{{ $labels.instance }}" will be out of inode numbers within 2 hours.'
+        description: 'Filesystem "{{ $labels.mountpoint }}" on "{{ $labels.instance }}" will be out of inode numbers within 12 hours.'
 
     - alert: NodeInodeFull
       expr: node_filesystem_files_free/node_filesystem_files{instance=~".*validator.*"} < 0.01
