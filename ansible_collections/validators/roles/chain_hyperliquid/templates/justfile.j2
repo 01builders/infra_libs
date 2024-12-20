@@ -1,0 +1,50 @@
+# use with https://github.com/casey/just
+#
+# Xion validator operations
+#
+
+# Set the shell to bash with error handling
+# set shell := ["bash", "-euo", "pipefail"]
+
+# Default recipe to show available commands
+default:
+    @just --list
+
+# Variables
+validator_service := "hl-visor-{{ chain_hyperliquid_network }}.service"
+log_lines := "100"
+
+# Start hl-visor-{{ chain_hyperliquid_network }} systemd service
+start:
+    @echo "Starting hl-visor-{{ chain_hyperliquid_network }}..."
+    sudo /usr/bin/systemctl start {% raw %}{{ validator_service }}
+{% endraw %}
+    @sleep 2
+    @just status
+
+# Stop hl-visor-{{ chain_hyperliquid_network }} systemd service
+stop:
+    @echo "Stopping hl-visor-{{ chain_hyperliquid_network }}..."
+    sudo /usr/bin/systemctl stop {% raw %}{{ validator_service }}
+{% endraw %}
+    @sleep 2
+    @just status
+
+# Restart hl-visor-{{ chain_hyperliquid_network }} systemd service
+restart:
+    @echo "Restarting hl-visor-{{ chain_hyperliquid_network }}..."
+    sudo /usr/bin/systemctl restart {% raw %}{{ validator_service }}
+{% endraw %}
+    @sleep 2
+    @just status
+
+# Check hl-visor-{{ chain_hyperliquid_network }} systemd service status
+status:
+    @echo "hl-visor-{{ chain_hyperliquid_network }} status:"
+    sudo /usr/bin/systemctl status {% raw %}{{ validator_service }}
+{% endraw %}
+
+# Consult hl-visor-{{ chain_hyperliquid_network }} systemd service logs
+logs:
+    journalctl --unit={% raw %}{{ validator_service }} --follow
+{% endraw %}

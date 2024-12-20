@@ -1,0 +1,81 @@
+---
+- name: Hypermon | Check current version
+  ansible.builtin.shell: |
+    hypermon --version
+  args:
+    executable: /bin/bash
+  register: check_hypermon
+  failed_when: false
+  changed_when: false
+
+- name: Hypermon | Set comparison string
+  ansible.builtin.set_fact:
+    hypermon_version_compare: "{{ chain_hyperliquid_hypermon_version | replace('v', '') }}"
+
+- name: Hypermon | Download binary
+  when: hypermon_version_compare not in check_hypermon.stdout
+  ansible.builtin.get_url:
+    # url: https://github.com/Luganodes/hypermon/releases/download/{{ chain_hyperliquid_hypermon_version }}/hypermon
+    url: https://github.com/01builders/hypermon/releases/download/v0.4.2/hypermon
+    dest: /usr/local/bin/hypermon
+    mode: "0755"
+  notify: Restart hypermon-{{ chain_hyperliquid_network }}
+
+- name: Hypermon | Create systemd service file
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/hypermon-{{ chain_hyperliquid_network }}.service
+    content: |
+      [Unit]
+      Description=hypermon-{{ chain_hyperliquid_network }}
+      After=network.target
+
+      [Service]
+      WorkingDirectory=/home/{{ chain_hyperliquid_user }}
+      Type=simple
+      ExecStart=/usr/local/bin/hypermon start --rpc-url=http://localhost:3001/evm --metrics-addr 0.0.0.0 --metrics-port {{ chain_hyperliquid_hypermon_prometheus_port }}
+      ExecStopPost=/bin/sleep 3
+      User={{ chain_hyperliquid_user }}
+      Group=users
+      Restart=always
+      RestartSec=3
+      TimeoutStartSec=900
+
+      [Install]
+      WantedBy=multi-user.target
+    mode: "0644"
+  notify: Restart hypermon-{{ chain_hyperliquid_network }}
+
+- name: Hypermon | Enable systemd service
+  ansible.builtin.systemd:
+    name: hypermon-{{ chain_hyperliquid_network }}
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Hypermon | Edit alloy configuration
+  when: chain_hyperliquid_hypermon_prometheus_port is defined
+  ansible.builtin.blockinfile:
+    path: "{{ chain_hyperliquid_alloy_config_path }}/config.alloy"
+    marker: /// {mark} ANSIBLE MANAGED BLOCK - hyperliquid - hypermon - {{ chain_hyperliquid_network }}
+    append_newline: true
+    block: |
+      prometheus.scrape "hyperliquid_hypermon_{{ chain_hyperliquid_network }}" {
+        clustering {
+          enabled = true
+        }
+        targets = [{
+          __address__ = "{{ ansible_hostname }}:{{ chain_hyperliquid_hypermon_prometheus_port }}",
+        }]
+        forward_to      = [prometheus.remote_write.victoriametrics.receiver]
+      }
+
+  notify: Restart alloy
+
+- name: VMAlert | Deploy alerts
+  when: chain_hyperliquid_alerts is defined and chain_hyperliquid_alerts | bool and chain_hyperliquid_hypermon_prometheus_port is defined
+  ansible.builtin.template:
+    src: alerts-hypermon.yml.j2
+    dest: "{{ observability_vmalert_config_path }}/hyperliquid-hypermon-{{ chain_hyperliquid_network }}.yml"
+    mode: "0644"
+  delegate_to: observability
+  notify: Restart vmalert

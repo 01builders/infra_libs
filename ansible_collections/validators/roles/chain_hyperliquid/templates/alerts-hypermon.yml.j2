@@ -1,0 +1,35 @@
+groups:
+  - name: Hyperliquid - Hypermon
+    rules:
+
+    - alert: InstanceDown
+      expr: up{job="prometheus.scrape.hyperliquid_hypermon_{{ chain_hyperliquid_network }}"} == 0
+      for: 3m
+      annotations:
+        title: "Instance {% raw %}{{ $labels.instance }}{% endraw %} down"
+        description: "{% raw %}{{ $labels.job }} on {{ $labels.instance }}{% endraw %} has been down for more than 3 minutes"
+      labels:
+        severity: critical
+        service: validator
+        component: hypermon
+
+    - alert: IsJailed
+      expr: hyperliquid_validator_is_jailed{address=" {{ chain_hyperliquid_validator_address }}"} == 1
+      for: 5m
+      labels:
+        severity: warning
+        service: validator
+        component: hypermon
+      annotations:
+        description: "Chain `hyperliquid-{{ chain_hyperliquid_network }}` validator on `{% raw %}{{ $labels.instance }}` is jailed! `{{ $value }}`!{% endraw %}"
+
+    - alert: DegradedSyncing
+      expr: increase(hyperliquid_validator_recent_blocks{address="{{ chain_hyperliquid_validator_address }}"}[5m])
+      for: 5m
+      labels:
+        severity: warning
+        service: validator
+        componnent: hypermon
+      annotations:
+        description: "{% raw %}Degraded syncing performance for Chain `hyperliquid-{{ chain_hyperliquid_network }}` validator on `{{ $labels.instance }}`{% endraw %}"
+        grafanaDashboardUrl: http://{{ hostvars['observability'].ansible_host }}.{{ public_domain }}:3000/d/cosmos-validator-watcher/cosmos-validator-watcher-by-chain?var-chain_id={{ observability_chain_id }}

@@ -1,0 +1,98 @@
+---
+- name: HL-visor | Download binary
+  ansible.builtin.get_url:
+    url: https://binaries.hyperliquid.xyz/Testnet/hl-visor
+    dest: /home/{{ chain_hyperliquid_user }}/hl-visor
+    mode: "0755"
+  become: true
+  become_user: "{{ chain_hyperliquid_user }}"
+  notify: Restart hl-visor-{{ chain_hyperliquid_network }}
+
+- name: HL-visor | Create systemd service file
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/hl-visor-{{ chain_hyperliquid_network }}.service
+    content: |
+      [Unit]
+      Description=hl-visor-{{ chain_hyperliquid_network }}
+      After=network.target
+
+      [Service]
+      WorkingDirectory=/home/{{ chain_hyperliquid_user }}
+      Type=simple
+      ExecStart=/home/{{ chain_hyperliquid_user }}/hl-visor run-non-validator --serve-eth-rpc
+      ExecStopPost=/bin/sleep 3
+      User={{ chain_hyperliquid_user }}
+      Group=users
+      Restart=always
+      RestartSec=3
+      TimeoutStartSec=900
+      LimitNOFILE=1400000
+
+      [Install]
+      WantedBy=multi-user.target
+    mode: "0644"
+  notify: Restart hl-visor-{{ chain_hyperliquid_network }}
+
+- name: HL-visor | Configuration
+  ansible.builtin.copy:
+    dest: /home/{{ chain_hyperliquid_user }}/visor.json
+    content: '{"chain": "{{ chain_hyperliquid_network | capitalize }}"}'
+    mode: "0644"
+  become: true
+  become_user: "{{ chain_hyperliquid_user }}"
+  notify: Restart hl-visor-{{ chain_hyperliquid_network }}
+
+- name: HL-visor | Override_gossip_config.json
+  ansible.builtin.get_url:
+    url: https://hyperliquid-peers.all4nodes.io/
+    dest: /home/{{ chain_hyperliquid_user }}/override_gossip_config.json
+    mode: "0644"
+  become: true
+  become_user: "{{ chain_hyperliquid_user }}"
+  notify: Restart hl-visor-{{ chain_hyperliquid_network }}
+
+- name: HL-visor | Firewall Allow Incoming on public interface
+  community.general.ufw:
+    rule: allow
+    interface: "{{ public_interface }}"
+    direction: in
+    port: "{{ item.port }}"
+    proto: "{{ item.proto }}"
+  loop:
+    - { port: 4000:4010, proto: tcp }
+
+- name: HL-visor | Enable systemd service
+  ansible.builtin.systemd:
+    name: hl-visor-{{ chain_hyperliquid_network }}
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: HL-visor | Add sudoers file
+  ansible.builtin.copy:
+    dest: "/etc/sudoers.d/{{ chain_hyperliquid_user }}-hl-visor-{{ chain_hyperliquid_network }}"
+    content: |
+      {{ chain_hyperliquid_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl start hl-visor-{{ chain_hyperliquid_network }}.service
+      {{ chain_hyperliquid_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop hl-visor-{{ chain_hyperliquid_network }}.service
+      {{ chain_hyperliquid_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart hl-visor-{{ chain_hyperliquid_network }}.service
+      {{ chain_hyperliquid_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl status hl-visor-{{ chain_hyperliquid_network }}.service
+    mode: "0440"
+    validate: /usr/sbin/visudo -cf %s
+
+- name: HL-visor | Purge
+  ansible.builtin.cron:
+    name: hyperliquid-{{ chain_hyperliquid_network }} | Purge node data
+    minute: "33"
+    hour: "*/3"
+    job: find /home/{{ chain_hyperliquid_user }}/hl/data -mindepth 1 -depth -mtime +2 -delete 2>/dev/null
+  become: true
+  become_user: "{{ chain_hyperliquid_user }}"
+
+- name: HL-visor | Automatic download good peers list
+  ansible.builtin.cron:
+    name: hyperliquid-{{ chain_hyperliquid_network }} | Download good peer list
+    minute: "14"
+    hour: "2"
+    job: wget --output-document /home/{{ chain_hyperliquid_user }}/override_gossip_config.json https://hyperliquid-peers.all4nodes.io/ && /usr/bin/systemctl restart hl-visor-{{ chain_hyperliquid_network }}.service && 2>/dev/null
+  become: true
+  become_user: "{{ chain_hyperliquid_user }}"

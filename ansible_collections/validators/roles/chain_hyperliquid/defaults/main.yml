@@ -1,0 +1,3 @@
+---
+chain_hyperliquid_alloy_config_path: /root/.local/share/alloy
+chain_hyperliquid_vmalert_config_path: /root/.local/share/vmalert

@@ -1,0 +1,23 @@
+---
+- name: Restart hl-visor-{{ chain_hyperliquid_network }}
+  ansible.builtin.systemd_service:
+    name: hl-visor-{{ chain_hyperliquid_network }}
+    state: restarted
+
+- name: Restart hypermon-{{ chain_hyperliquid_network }}
+  ansible.builtin.systemd_service:
+    name: hypermon-{{ chain_hyperliquid_network }}
+    state: restarted
+
+- name: Restart alloy
+  ansible.builtin.systemd_service:
+    name: alloy
+    daemon_reload: true
+    state: restarted
+
+- name: Restart vmalert
+  ansible.builtin.systemd_service:
+    name: vmalert
+    daemon_reload: true
+    state: restarted
+  delegate_to: observability
