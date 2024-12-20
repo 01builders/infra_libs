@@ -4,7 +4,7 @@
 
 - name: Reset state
   when:
-    - not testnet_container_longlived | bool
+    - not testnet_longlived | bool
     - semaphore_scheduled is defined and semaphore_scheduled | bool
   ansible.builtin.include_tasks: reset-state.yml
 
@@ -13,7 +13,7 @@
 
 - name: Update repository
   when:
-    - not testnet_container_longlived | bool
+    - not testnet_longlived | bool
     - semaphore_scheduled is defined and semaphore_scheduled | bool
   ansible.builtin.include_tasks: update-repository.yml
 

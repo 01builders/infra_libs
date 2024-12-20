@@ -125,8 +125,9 @@
         image: "{{ testnet_container_image }}"
         state: quadlet
         env:
-          COSMOS_CHAIN_ID: "{{ testnet_container_name | replace('-node', '') }}"
+          COSMOS_CHAIN_ID: "{{ testnet_chainid }}"
           COSMOS_MONIKER: "{{ testnet_container_name }}"
+          GENESIS_ENABLED: "{{ testnet_genesis }}"
         ports:
           - "{{ testnet_container_prometheus_port }}:26660"
           - "{{ testnet_container_p2p_port }}:26656"
