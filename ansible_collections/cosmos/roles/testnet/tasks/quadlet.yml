@@ -9,6 +9,15 @@
           app: "{{ testnet_container_name }}"
       notify: Restart Cosmos node {{ testnet_container_name }}
 
+    - name: Quadlet | Set common variables
+      ansible.builtin.set_fact:
+        quadlet_volumes_common:
+          - "{{ testnet_container_name }}.volume:/config:bind"
+
+    - name: Quadlet | Set custom variables
+      ansible.builtin.set_fact:
+        quadlet_volumes: "{{ quadlet_volumes_common + (testnet_quadlet_volumes_custom | default([])) }}"
+
     - name: Quadlet | Set container labels | generic | {{ item.name | replace('-node', '') }}
       ansible.builtin.set_fact:
         traefik_labels_generic:
@@ -127,12 +136,12 @@
         env:
           COSMOS_CHAIN_ID: "{{ testnet_chainid }}"
           COSMOS_MONIKER: "{{ testnet_container_name }}"
-          GENESIS_ENABLED: "{{ testnet_genesis }}"
+          GENESIS_ENABLED: "{{ testnet_genesis_enabled }}"
+          GENESIS_VALIDATORS_NUMBER: "{{ testnet_genesis_validators_number }}"
         ports:
           - "{{ testnet_container_prometheus_port }}:26660"
           - "{{ testnet_container_p2p_port }}:26656"
-        volumes:
-          - "{{ testnet_container_name }}.volume:/config:bind"
+        volumes: "{{ quadlet_volumes }}"
         label: "{{ traefik_labels | items2dict }}"
         quadlet_options:
           - |
