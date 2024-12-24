@@ -15,8 +15,7 @@
 - name: Hypermon | Download binary
   when: hypermon_version_compare not in check_hypermon.stdout
   ansible.builtin.get_url:
-    # url: https://github.com/Luganodes/hypermon/releases/download/{{ chain_hyperliquid_hypermon_version }}/hypermon
-    url: https://github.com/01builders/hypermon/releases/download/v0.4.2/hypermon
+    url: https://github.com/Luganodes/hypermon/releases/download/{{ chain_hyperliquid_hypermon_version }}/hypermon
     dest: /usr/local/bin/hypermon
     mode: "0755"
   notify: Restart hypermon-{{ chain_hyperliquid_network }}
