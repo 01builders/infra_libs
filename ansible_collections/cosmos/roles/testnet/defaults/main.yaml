@@ -2,3 +2,4 @@
 testnet_config_dir: /mnt/container-volumes/{{ testnet_container_name }}/_data/config
 testnet_config_path: /root/.local/share/alloy
 testnet_docs_path: short-lived-testnets
+testnet_quadlet_volumes_custom:
