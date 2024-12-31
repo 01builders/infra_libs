@@ -14,7 +14,7 @@ groups:
 
     - alert: NodeDiskFull1W
       expr: predict_linear(node_filesystem_free_bytes{fstype!~"rootfs|nfs4|tmpfs", instance=~".*validator.*", instance!~".*hyperliquid.*"}[4h], 7 * 24 * 3600) < 0
-      for: 5m
+      for: 1h
       labels:
         severity: warning
         component: node_exporter

@@ -74,7 +74,7 @@
   when: chain_hyperliquid_alerts is defined and chain_hyperliquid_alerts | bool and chain_hyperliquid_hypermon_prometheus_port is defined
   ansible.builtin.template:
     src: alerts-hypermon.yml.j2
-    dest: "{{ observability_vmalert_config_path }}/hyperliquid-hypermon-{{ chain_hyperliquid_network }}.yml"
+    dest: "{{ chain_hyperliquid_vmalert_config_path }}/hyperliquid-hypermon-{{ chain_hyperliquid_network }}.yml"
     mode: "0644"
   delegate_to: observability
   notify: Restart vmalert

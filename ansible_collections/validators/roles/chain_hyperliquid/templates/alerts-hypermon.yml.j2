@@ -31,5 +31,4 @@ groups:
         service: validator
         componnent: hypermon
       annotations:
-        description: "{% raw %}Degraded syncing performance for Chain `hyperliquid-{{ chain_hyperliquid_network }}` validator on `{{ $labels.instance }}`{% endraw %}"
-        grafanaDashboardUrl: http://{{ hostvars['observability'].ansible_host }}.{{ public_domain }}:3000/d/cosmos-validator-watcher/cosmos-validator-watcher-by-chain?var-chain_id={{ observability_chain_id }}
+        description: "Degraded syncing performance for Chain `hyperliquid-{{ chain_hyperliquid_network }}` validator on {% raw %}`{{ $labels.instance }}`{% endraw %}"
