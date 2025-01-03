@@ -1,0 +1,72 @@
+---
+- name: Install required packages
+  ansible.builtin.apt:
+    name:
+      - build-essential
+      - git
+      - make
+      - lz4
+      - gcc
+    state: present
+
+- name: Create user
+  ansible.builtin.user:
+    name: "{{ chain_osmosis_user }}"
+    group: users
+    system: true
+    create_home: true
+    state: present
+
+- name: Add user to systemd-journal group
+  ansible.builtin.user:
+    name: "{{ chain_osmosis_user }}"
+    groups: systemd-journal
+    append: true
+
+- name: Create directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    recurse: true
+    mode: "0700"
+    owner: "{{ chain_osmosis_user }}"
+    group: users
+  loop:
+    - "/home/{{ chain_osmosis_user }}/go/bin"
+
+- name: Install Go
+  ansible.builtin.include_role:
+    name: install_go
+
+- name: Osmosisd | Set facts
+  ansible.builtin.set_fact:
+    chain_osmosis_binary_name: osmosisd
+    chain_osmosis_home_dir: /home/{{ chain_osmosis_user }}/.osmosisd
+
+- name: Osmosisd | Binary
+  ansible.builtin.include_tasks: osmosisd-binary.yml
+
+- name: Osmosisd | configuration
+  ansible.builtin.include_tasks: osmosisd-configuration.yml
+
+- name: Cosmos-validator-watcher
+  ansible.builtin.include_tasks: cosmos-validator-watcher.yml
+  tags:
+    - cosmos-validator-watcher
+
+- name: Validator-observability
+  ansible.builtin.include_role:
+    name: binarybuilders.validators.observability
+  vars:
+    observability_alerts: "{{ chain_osmosis_alerts }}"
+    observability_chain_id: "{{ chain_osmosis_chain_id }}"
+    observability_prometheus_sdk_prometheus_port: "{{ chain_osmosis_osmosisd_prometheus_port }}"
+    observability_prometheus_watcher_prometheus_port: "{{ chain_osmosis_watcher_prometheus_port }}"
+
+- name: Deploy justfile
+  ansible.builtin.template:
+    src: justfile.j2
+    dest: /home/{{ chain_osmosis_user }}/justfile
+    owner: "{{ chain_osmosis_user }}"
+    group: users
+    mode: "0644"

@@ -12,10 +12,14 @@
 - name: Install go {{ install_go_version }}
   when: install_go_version not in check_go.stdout
   block:
+    - name: Set architecture fact
+      ansible.builtin.set_fact:
+        go_arch: "{{ 'arm64' if ansible_architecture in ['arm64', 'aarch64'] else 'amd64' }}"
+
     - name: Download Golang {{ install_go_version }}
       ansible.builtin.get_url:
-        url: "https://golang.org/dl/go{{ install_go_version }}.linux-amd64.tar.gz"
-        dest: "/tmp/go{{ install_go_version }}.linux-amd64.tar.gz"
+        url: "https://golang.org/dl/go{{ install_go_version }}.linux-{{ go_arch }}.tar.gz"
+        dest: "/tmp/go{{ install_go_version }}.linux-{{ go_arch }}.tar.gz"
         mode: "0644"
 
     - name: Create directories
@@ -26,13 +30,13 @@
 
     - name: Extract Golang to /usr/local/{{ install_go_version }}
       ansible.builtin.unarchive:
-        src: "/tmp/go{{ install_go_version }}.linux-amd64.tar.gz"
+        src: "/tmp/go{{ install_go_version }}.linux-{{ go_arch }}.tar.gz"
         dest: /usr/local/go/{{ install_go_version }}
         remote_src: true
 
     - name: Remove Go tarball
       ansible.builtin.file:
-        path: "/tmp/go{{ install_go_version }}.linux-amd64.tar.gz"
+        path: "/tmp/go{{ install_go_version }}.linux-{{ go_arch }}.tar.gz"
         state: absent
 
   rescue:
