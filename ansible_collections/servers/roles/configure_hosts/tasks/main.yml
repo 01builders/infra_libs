@@ -11,6 +11,7 @@
 
 - name: Firewall
   ansible.builtin.include_tasks: firewall.yml
+  when: configure_hosts_firewall_enabled is defined and configure_hosts_firewall_enabled | bool
 
 - name: System
   ansible.builtin.include_tasks: system.yml
