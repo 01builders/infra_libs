@@ -2,7 +2,7 @@
 - name: Bridge-celestia-app | Set vars
   ansible.builtin.set_fact:
     home_dir: /home/{{ chain_celestia_user }}/.celestia-app-bridge
-    service_name: bridge-celestia-app-{{ chain_celestia_network }}
+    service_name: bridge-celestia-app-{{ chain_celestia_chain_id }}
 
 - name: Bridge-celestia-app | Firewall Allow Incoming on public interface
   community.general.ufw:

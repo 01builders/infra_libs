@@ -1,8 +1,8 @@
 ---
 - name: Validator-celestia-app | Set vars
   ansible.builtin.set_fact:
-    home_dir: /home/{{ chain_celestia_user }}/.celestia-app-validator
-    service_name: validator-celestia-app-{{ chain_celestia_network }}
+    home_dir: /home/{{ chain_celestia_user }}/.celestia-app
+    service_name: appd-{{ chain_celestia_chain_id }}
 
 - name: Validator-celestia-app | Firewall Allow Incoming on public interface
   community.general.ufw:

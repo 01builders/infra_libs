@@ -52,11 +52,11 @@
     path: "{{ chain_osmosis_home_dir }}/config/app.toml"
     regexp: "{{ item.regexp }}"
     replace: "{{ item.line }}"
-  notify: Restart {{ chain_osmosis_binary_name }}-{{ chain_osmosis_network }}
+  notify: Restart appd-{{ chain_osmosis_chain_id }}
   loop:
     # Set gas price
     - regexp: ^(minimum-gas-prices\s*=\s*).*$
-      line: \1"0.025uosmo"
+      line: \1"0uosmo"
     # Tendermint block pruning
     - regexp: ^(pruning\s*=\s*).*$
       line: \1"custom"
@@ -78,7 +78,7 @@
     path: "{{ chain_osmosis_home_dir }}/config/config.toml"
     regexp: "{{ item.regexp }}"
     replace: "{{ item.line }}"
-  notify: Restart {{ chain_osmosis_binary_name }}-{{ chain_osmosis_network }}
+  notify: Restart appd-{{ chain_osmosis_chain_id }}
   loop:
     # Listen on 0.0.0.0 (RPC)
     - regexp: (^\[rpc\]\n\n# TCP or UNIX socket address for the RPC server to listen on\n)laddr = "tcp://[^"]*"
@@ -100,14 +100,17 @@
       line: \1true
     # Timeout commit
     - regexp: ^(timeout_commit\s*=\s*).*$
-      line: \1"1s"
+      line: \1"500ms"
+    # Double-sign check height
+    - regexp: ^(double_sign_check_height\s*=\s*).*$
+      line: \1"1"
 
 - name: Configuration | client.toml
   ansible.builtin.replace:
     path: "{{ chain_osmosis_home_dir }}/config/client.toml"
     regexp: "{{ item.regexp }}"
     replace: "{{ item.line }}"
-  notify: Restart {{ chain_osmosis_binary_name }}-{{ chain_osmosis_network }}
+  notify: Restart appd-{{ chain_osmosis_chain_id }}
   loop:
     # Listen on 0.0.0.0 (RPC)
     - regexp: ^(chain-id\s*=\s*).*$

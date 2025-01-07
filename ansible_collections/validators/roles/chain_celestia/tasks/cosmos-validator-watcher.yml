@@ -1,7 +1,7 @@
 ---
 - name: Cosmos-validator-watcher | Set vars
   ansible.builtin.set_fact:
-    service_name: cosmos-validator-watcher-celestia-{{ chain_celestia_network }}
+    service_name: cosmos-validator-watcher-{{ chain_celestia_chain_id }}
 
 - name: Cosmos-validator-watcher | Set testnet vars
   when: chain_celestia_network == "mocha"
@@ -30,12 +30,12 @@
     command: "{{ quadlet_command }}"
     network: host
     label:
-      app: celestia-{{ chain_celestia_network }}
+      app: celestia-{{ chain_celestia_chain_id }}
     quadlet_options:
       - |
 
         [Unit]
-        Description=cosmos-validator-watcher for {{ chain_celestia_network }}
+        Description=cosmos-validator-watcher for {{ chain_celestia_chain_id }}
         After=network-online.target
         Wants=network-online.target
 

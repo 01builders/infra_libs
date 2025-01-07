@@ -12,117 +12,117 @@ default:
 
 # Variables
 {% if chain_celestia_bridge is defined and chain_celestia_bridge | bool %}
-bridge_app_service := "bridge-celestia-app-{{ chain_celestia_network }}"
-bridge_node_service := "bridge-celestia-node-{{ chain_celestia_network }}"
+bridge_app_service := "bridge-celestia-app-{{ chain_celestia_chain_id }}"
+bridge_node_service := "bridge-celestia-node-{{ chain_celestia_chain_id }}"
 {% endif %}
 {% if chain_celestia_validator is defined and chain_celestia_validator | bool %}
-validator_app_service := "validator-celestia-app-{{ chain_celestia_network }}"
+validator_app_service := "appd-{{ chain_celestia_chain_id }}"
 {% endif %}
 log_lines := "100"
 
 {% if chain_celestia_bridge is defined and chain_celestia_bridge | bool %}
-# Start {% raw %}{{ bridge_app_service }}{% endraw %} systemd service
+# Start bridge-celestia-app systemd service
 start-bridge-app:
     @echo "Starting {% raw %}{{ bridge_app_service }}{% endraw %}..."
     sudo /usr/bin/systemctl start {% raw %}{{ bridge_app_service }}.service
 {% endraw %}
     @sleep 2
-    @just status-app
+    @just status-bridge-app
 
-# Stop {% raw %}{{ bridge_app_service }}{% endraw %} systemd service
+# Stop bridge-celestia-app systemd service
 stop-bridge-app:
     @echo "Stopping {% raw %}{{ bridge_app_service }}{% endraw %}..."
     sudo /usr/bin/systemctl stop {% raw %}{{ bridge_app_service }}.service
 {% endraw %}
     @sleep 2
-    @just status-app
+    @just status-bridge-app
 
-# Restart {% raw %}{{ bridge_app_service }}{% endraw %} systemd service
+# Restart bridge-celestia-app systemd service
 restart-bridge-app:
     @echo "Restarting {% raw %}{{ bridge_app_service }}{% endraw %}..."
     sudo /usr/bin/systemctl restart {% raw %}{{ bridge_app_service }}.service
 {% endraw %}
     @sleep 2
-    @just status-app
+    @just status-bridge-app
 
-# Check {% raw %}{{ bridge_app_service }}{% endraw %} systemd service status
+# Check bridge-celestia-app systemd service status
 status-bridge-app:
     @echo "{% raw %}{{ bridge_app_service }}{% endraw %} status:"
     sudo /usr/bin/systemctl status {% raw %}{{ bridge_app_service }}.service
 {% endraw %}
 
-# Consult {% raw %}{{ bridge_app_service }}{% endraw %} systemd service logs
+# Consult bridge-celestia-node systemd service logs
 logs-bridge-app:
     journalctl --unit={% raw %}{{ bridge_app_service }} --follow
 {% endraw %}
 
-# Start {% raw %}{{ bridge_node_service }}{% endraw %} systemd service
+# Start bridge-celestia-node systemd service
 start-bridge-node:
     @echo "Starting {{ chain_celestia_network }}..."
     sudo /usr/bin/systemctl start {% raw %}{{ bridge_node_service }}.service
 {% endraw %}
     @sleep 2
-    @just status-bridge
+    @just status-bridge-node
 
-# Stop {% raw %}{{ bridge_node_service }}{% endraw %} systemd service
+# Stop bridge-celestia-node systemd service
 stop-bridge-node:
     @echo "Stopping {% raw %}{{ bridge_node_service }}{% endraw %}..."
     sudo /usr/bin/systemctl stop {% raw %}{{ bridge_node_service }}.service
 {% endraw %}
     @sleep 2
-    @just status-bridge
-# Restart {% raw %}{{ bridge_node_service }}{% endraw %} systemd service
+    @just status-bridge-node
+# Restart bridge-celestia-node systemd service
 restart-bridge-node:
     @echo "Restarting {% raw %}{{ bridge_node_service }}{% endraw %}..."
     sudo /usr/bin/systemctl restart {% raw %}{{ bridge_node_service }}.service
 {% endraw %}
     @sleep 2
-    @just status-bridge
+    @just status-bridge-node
 
-# Check {% raw %}{{ bridge_node_service }}{% endraw %} systemd service status
+# Check bridge-celestia-node systemd service status
 status-bridge-node:
     @echo "{% raw %}{{ bridge_node_service }}{% endraw %} status:"
     sudo /usr/bin/systemctl status {% raw %}{{ bridge_node_service }}.service
 {% endraw %}
 
-# Consult {% raw %}{{ bridge_node_service }}{% endraw %} systemd service logs
+# Consult bridge-celestia-node systemd service logs
 logs-bridge-node:
     journalctl --unit={% raw %}{{ bridge_node_service }} --follow
 {% endraw %}
 {% endif %}
 
 {% if chain_celestia_validator is defined and chain_celestia_validator | bool %}
-# Start {% raw %}{{ validator_app_service }}{% endraw %} systemd service
+# Start {validator-celestia-app systemd service
 start-validator-app:
     @echo "Starting {% raw %}{{ validator_app_service }}{% endraw %}..."
     sudo /usr/bin/systemctl start {% raw %}{{ validator_app_service }}.service
 {% endraw %}
     @sleep 2
-    @just status-app
+    @just status-validator-app
 
-# Stop {% raw %}{{ validator_app_service }}{% endraw %} systemd service
+# Stop validator-celestia-app systemd service
 stop-validator-app:
     @echo "Stopping {% raw %}{{ validator_app_service }}{% endraw %}..."
     sudo /usr/bin/systemctl stop {% raw %}{{ validator_app_service }}.service
 {% endraw %}
     @sleep 2
-    @just status-app
+    @just status-validator-app
 
-# Restart {% raw %}{{ validator_app_service }}{% endraw %} systemd service
+# Restart validator-celestia-app systemd service
 restart-validator-app:
     @echo "Restarting {% raw %}{{ validator_app_service }}{% endraw %}..."
     sudo /usr/bin/systemctl restart {% raw %}{{ validator_app_service }}.service
 {% endraw %}
     @sleep 2
-    @just status-app
+    @just status-validator-app
 
-# Check {% raw %}{{ validator_app_service }}{% endraw %} systemd service status
+# Check validator-celestia-app systemd service status
 status-validator-app:
     @echo "{% raw %}{{ validator_app_service }}{% endraw %} status:"
     sudo /usr/bin/systemctl status {% raw %}{{ validator_app_service }}.service
 {% endraw %}
 
-# Consult {% raw %}{{ validator_app_service }}{% endraw %} systemd service logs
+# Consult validator-celestia-app systemd service logs
 logs-validator-app:
     journalctl --unit={% raw %}{{ validator_app_service }} --follow
 {% endraw %}

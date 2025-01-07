@@ -1,9 +1,9 @@
 groups:
-  - name: cosmos-sdk - {{ observability_chain_id }}
+  - name: cosmos-sdk - {{ marker_id }}
     rules:
 
     - alert: InstanceDown
-      expr: (sum(up{job="prometheus.scrape.cosmos_sdk_{{ observability_chain_id | replace('-', '_') }}"}) == 0) or absent(up{job="prometheus.scrape.cosmos_sdk_{{ observability_chain_id | replace('-', '_') }}"})
+      expr: (sum(up{job="prometheus.scrape.cosmos_sdk_{{ marker_id | replace('-', '_') }}"}) == 0) or absent(up{job="prometheus.scrape.cosmos_sdk_{{ marker_id | replace('-', '_') }}"})
       for: 3m
       annotations:
         title: "Instance {% raw %}{{ $labels.instance }}{% endraw %} down"

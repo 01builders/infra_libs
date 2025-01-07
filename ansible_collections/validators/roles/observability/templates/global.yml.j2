@@ -12,23 +12,29 @@ groups:
       annotations:
         description: 'Filesystem "{{ $labels.mountpoint }}" on "{{ $labels.instance }}" is read-only.'
 
-    - alert: NodeDiskFull1W
-      expr: predict_linear(node_filesystem_free_bytes{fstype!~"rootfs|nfs4|tmpfs", instance=~".*validator.*", instance!~".*hyperliquid.*"}[4h], 7 * 24 * 3600) < 0
+    - alert: NodeDiskFull3days
+      expr: |
+        predict_linear(node_filesystem_free_bytes{fstype!~"rootfs|nfs4|tmpfs", instance=~".*validator.*", instance!~".*hyperliquid.*"}[24h], 3 * 24 * 3600) < 0
+        and
+        deriv(predict_linear(node_filesystem_free_bytes{fstype!~"rootfs|nfs4|tmpfs", instance=~".*validator.*", instance!~".*hyperliquid.*"}[24h], 3 * 24 * 3600))[24h] < -5000000
       for: 1h
       labels:
         severity: warning
         component: node_exporter
       annotations:
-        description: 'Filesystem "{{ $labels.mountpoint }}" on "{{ $labels.instance }}" will be out of diskspace within 1 week.'
+        description: 'Filesystem "{{ $labels.mountpoint }}" on "{{ $labels.instance }}" will be out of diskspace within 3 days based on current growth rate.'
 
-    - alert: NodeDiskFull12H
-      expr: predict_linear(node_filesystem_free_bytes{fstype!~"rootfs|nfs4|tmpfs", instance=~".*validator.*"}[4h], 12 * 3600) < 0
+    - alert: NodeDiskFull6H
+      expr: |
+        predict_linear(node_filesystem_free_bytes{fstype!~"rootfs|nfs4|tmpfs", instance=~".*validator.*"}[12h], 6 * 3600) < 0
+        and
+        deriv(predict_linear(node_filesystem_free_bytes{fstype!~"rootfs|nfs4|tmpfs", instance=~".*validator.*"}[12h], 6 * 3600))[12h] < -10000000
       for: 15m
       labels:
         severity: critical
         component: node_exporter
       annotations:
-        description: 'Filesystem "{{ $labels.mountpoint }}" on "{{ $labels.instance }}" will be out of diskspace within 12 hours.'
+        description: 'Filesystem "{{ $labels.mountpoint }}" on "{{ $labels.instance }}" will be out of diskspace within 6 hours based on current growth rate.'
 
     - alert: NodeDiskFull
       expr: node_filesystem_avail_bytes/node_filesystem_size_bytes < 0.01
@@ -39,14 +45,17 @@ groups:
       annotations:
         description: 'Filesystem "{{ $labels.mountpoint }}" on "{{ $labels.instance }}" is out of diskspace (< 1% free).'
 
-    - alert: NodeInodeFull1W
-      expr: predict_linear(node_filesystem_files_free{fstype!~"rootfs|nfs4|tmpfs", instance=~".*validator.*"}[4h], 7 * 24 * 3600) < 0
+    - alert: NodeInodeFull3days
+      expr: |
+        predict_linear(node_filesystem_files_free{fstype!~"rootfs|nfs4|tmpfs", instance=~".*validator.*"}[24h], 3 * 24 * 3600) < 0
+        and
+        deriv(predict_linear(node_filesystem_files_free{fstype!~"rootfs|nfs4|tmpfs", instance=~".*validator.*"}[24h], 3 * 24 * 3600))[24h] < -1000
       for: 1h
       labels:
         severity: warning
         component: node_exporter
       annotations:
-        description: 'Filesystem "{{ $labels.mountpoint }}" on "{{ $labels.instance }}" will be out of inode numbers within 1 week.'
+        description: 'Filesystem "{{ $labels.mountpoint }}" on "{{ $labels.instance }}" will be out of inodes within 3 days based on current growth rate.'
 
     - alert: NodeInodeFull12H
       expr: predict_linear(node_filesystem_files_free{fstype!~"rootfs|nfs4|tmpfs", instance=~".*validator.*"}[4h], 12 * 3600) < 0

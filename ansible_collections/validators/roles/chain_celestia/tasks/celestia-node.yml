@@ -1,7 +1,7 @@
 ---
 - name: Celestia-node | Set vars
   ansible.builtin.set_fact:
-    service_name: bridge-celestia-node-{{ chain_celestia_network }}
+    service_name: bridge-celestia-node-{{ chain_celestia_chain_id }}
 
 - name: Celestia-node | Set testnet vars
   when: chain_celestia_network == "mocha"
@@ -23,7 +23,7 @@
     chain_celestia_bridge_conf_dir: .celestia-bridge
     flags:
       - --archival
-      - --p2p.network celestia
+      - --p2p.network {{ chain_celestia_network }}
       - --core.ip 127.0.0.1
       - --core.rpc.port {{ chain_celestia_bridge_app_rpc_port }}
       - --core.grpc.port {{ chain_celestia_bridge_app_grpc_port }}
@@ -112,7 +112,7 @@
     dest: /etc/systemd/system/{{ service_name }}.service
     content: |
       [Unit]
-      Description=Celestia-bridge-{{ chain_celestia_network }} (Data Availability)
+      Description=Celestia-bridge-{{ chain_celestia_chain_id }} (Data Availability)
       After=network.target
 
       [Service]
@@ -132,7 +132,7 @@
 
 - name: Celestia-node | Add sudoers file
   ansible.builtin.copy:
-    dest: "/etc/sudoers.d/{{ chain_celestia_user }}-bridge-{{ chain_celestia_network }}"
+    dest: "/etc/sudoers.d/{{ chain_celestia_user }}-bridge-{{ chain_celestia_chain_id }}"
     content: |
       {{ chain_celestia_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl start {{ service_name }}.service
       {{ chain_celestia_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop {{ service_name }}.service

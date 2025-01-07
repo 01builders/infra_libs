@@ -1,7 +1,7 @@
 ---
 - name: Celestia-da-otel-collector | Set vars
   ansible.builtin.set_fact:
-    service_name: celestia-da-otel-collector-{{ chain_celestia_network }}
+    service_name: celestia-da-otel-collector-{{ chain_celestia_chain_id }}
 
 # https://github.com/kjnodes/celestia-bridge-monitoring/blob/main/README.md
 - name: Celestia-da-otel-collector | Set testnet vars
@@ -74,7 +74,7 @@
     volume:
       - "{{ chain_celestia_da_otel_config_path }}/otel-config.yml:/config/otel-config.yaml"
     label:
-      app: celestia-{{ chain_celestia_network }}
+      app: celestia-{{ chain_celestia_chain_id }}
     quadlet_options:
       - |
 

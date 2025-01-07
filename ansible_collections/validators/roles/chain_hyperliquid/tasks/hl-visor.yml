@@ -88,11 +88,11 @@
   become: true
   become_user: "{{ chain_hyperliquid_user }}"
 
-- name: HL-visor | Automatic download good peers list
-  ansible.builtin.cron:
-    name: hyperliquid-{{ chain_hyperliquid_network }} | Download good peer list
-    minute: "14"
-    hour: "2"
-    job: wget --output-document /home/{{ chain_hyperliquid_user }}/override_gossip_config.json https://hyperliquid-peers.all4nodes.io/ && /usr/bin/systemctl restart hl-visor-{{ chain_hyperliquid_network }}.service && 2>/dev/null
-  become: true
-  become_user: "{{ chain_hyperliquid_user }}"
+# - name: HL-visor | Automatic download good peers list
+#   ansible.builtin.cron:
+#     name: hyperliquid-{{ chain_hyperliquid_network }} | Download good peer list
+#     minute: "14"
+#     hour: "2"
+#     job: wget --output-document /home/{{ chain_hyperliquid_user }}/override_gossip_config.json https://hyperliquid-peers.all4nodes.io/ && /usr/bin/systemctl restart hl-visor-{{ chain_hyperliquid_network }}.service && 2>/dev/null
+#   become: true
+#   become_user: "{{ chain_hyperliquid_user }}"

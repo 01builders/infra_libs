@@ -5,15 +5,7 @@
     quadlet_command:
       - --http-addr :{{ chain_osmosis_watcher_prometheus_port }}
       - --node http://localhost:{{ chain_osmosis_osmosisd_rpc_port }}
-      - --validator 636D3F847A47A01472489C28224702AA6F50F49A:{{ chain_osmosis_chain_id }}
-
-- name: Cosmos-validator-watcher | Set testnet vars
-  when: chain_osmosis_network == "testnet"
-  ansible.builtin.set_fact:
-    quadlet_command:
-      - --http-addr :{{ chain_osmosis_watcher_prometheus_port }}
-      - --node http://localhost:{{ chain_osmosis_osmosisd_rpc_port }}
-      - --validator 636D3F847A47A01472489C28224702AA6F50F49A:{{ chain_osmosis_chain_id }}
+      - --validator 2022FE8CC49E48630C76160E11A880459219D244:{{ chain_osmosis_chain_id }}
 
 - name: Cosmos-validator-watcher | Quadlet container file
   containers.podman.podman_container:
@@ -23,7 +15,7 @@
     command: "{{ quadlet_command }}"
     network: host
     label:
-      app: "{{ chain_osmosis_binary_name }}-{{ chain_osmosis_chain_id }}"
+      app: "appd-{{ chain_osmosis_chain_id }}"
     quadlet_options:
       - |
 

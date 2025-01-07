@@ -73,7 +73,7 @@
   become: true
   become_user: "{{ chain_osmosis_user }}"
   changed_when: true
-  notify: Restart {{ chain_osmosis_binary_name }}-{{ chain_osmosis_network }}
+  notify: Restart appd-{{ chain_osmosis_chain_id }}
 
 - name: Binary | Initialize Cosmovisor
   when: not cosmovisor_init.stat.exists # noqa: no-handler
@@ -113,10 +113,10 @@
 
 - name: Binary | Create systemd service file
   ansible.builtin.copy:
-    dest: /etc/systemd/system/{{ chain_osmosis_binary_name }}-{{ chain_osmosis_network }}.service
+    dest: /etc/systemd/system/appd-{{ chain_osmosis_chain_id }}.service
     content: |
       [Unit]
-      Description={{ chain_osmosis_binary_name }}-{{ chain_osmosis_network }} (Validator)
+      Description={{ chain_osmosis_binary_name }} {{ chain_osmosis_network }} (chain_id: chain_osmosis_chain_id) (Validator)
       After=network.target
 
       [Service]
@@ -138,11 +138,11 @@
       [Install]
       WantedBy=multi-user.target
     mode: "0644"
-  notify: Restart {{ chain_osmosis_binary_name }}-{{ chain_osmosis_network }}
+  notify: Restart appd-{{ chain_osmosis_chain_id }}
 
 - name: Binary | Enable systemd service
   ansible.builtin.systemd:
-    name: "{{ chain_osmosis_binary_name }}-{{ chain_osmosis_network }}"
+    name: "appd-{{ chain_osmosis_chain_id }}"
     enabled: true
     state: started
     daemon_reload: true

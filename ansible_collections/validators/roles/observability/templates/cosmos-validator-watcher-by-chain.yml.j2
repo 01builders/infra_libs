@@ -1,9 +1,9 @@
 groups:
-  - name: cosmos-validator-watcher - {{ observability_chain_id }}
+  - name: cosmos-validator-watcher - {{ marker_id }}
     rules:
 
     - alert: InstanceDown
-      expr: up{job="prometheus.scrape.cosmos_validator_watcher_{{ observability_chain_id | replace('-', '_') }}"} == 0
+      expr: up{job="prometheus.scrape.cosmos_validator_watcher_{{ marker_id | replace('-', '_') }}"} == 0
       for: 3m
       annotations:
         title: "Instance {% raw %}{{ $labels.instance }}{% endraw %} down"
