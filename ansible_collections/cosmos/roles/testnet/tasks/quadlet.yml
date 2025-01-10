@@ -1,7 +1,7 @@
 ---
 - name: Quadlet
   block:
-    - name: Quadlet | Volume file | {{ item.name | replace('-node', '') }}
+    - name: Quadlet | Volume file | {{ testnet_container_name | replace('-node', '') }}
       containers.podman.podman_volume:
         name: "{{ testnet_container_name }}"
         state: quadlet
@@ -16,9 +16,9 @@
 
     - name: Quadlet | Set custom variables
       ansible.builtin.set_fact:
-        quadlet_volumes: "{{ quadlet_volumes_common + (testnet_quadlet_volumes_custom | default([])) }}"
+        quadlet_volumes: "{{ quadlet_volumes_common + testnet_quadlet_volumes_custom }}"
 
-    - name: Quadlet | Set container labels | generic | {{ item.name | replace('-node', '') }}
+    - name: Quadlet | Set container labels | generic | {{ testnet_container_name | replace('-node', '') }}
       ansible.builtin.set_fact:
         traefik_labels_generic:
           - key: traefik.enable
@@ -104,31 +104,31 @@
           - key: traefik.http.services.{{ testnet_container_name }}-rpc.loadbalancer.server.port
             value: 26657
 
-    - name: Quadlet | Set container labels | not v2 | {{ item.name | replace('-node', '') }}
+    - name: Quadlet | Set container labels | not v2 | {{ testnet_container_name | replace('-node', '') }}
       when: testnet_container_name != "v2-052-1-node"
       ansible.builtin.set_fact:
         traefik_labels_not_v2:
           - key: traefik.http.routers.{{ testnet_container_name }}.rule
             value: Host'(`{{ testnet_container_name | replace('-node', '') }}-testnet-api.{{ public_domain }}`)'
 
-    - name: Quadlet | Set container labels | v2* | {{ item.name | replace('-node', '') }}
+    - name: Quadlet | Set container labels | v2* | {{ testnet_container_name | replace('-node', '') }}
       when: testnet_container_name == "v2-052-1-node"
       ansible.builtin.set_fact:
         traefik_labels_v2:
           - key: traefik.http.routers.{{ testnet_container_name }}.rule
             value: Host'(`{{ testnet_container_name | replace('-node', '') }}-testnet-grpcgw.{{ public_domain }}`)'
 
-    - name: Quadlet | Set vars | not v2 | {{ item.name | replace('-node', '') }}
+    - name: Quadlet | Set vars | not v2 | {{ testnet_container_name | replace('-node', '') }}
       when: testnet_container_name != "v2-052-1-node"
       ansible.builtin.set_fact:
         traefik_labels: "{{ traefik_labels_generic + traefik_labels_not_v2 }}"
 
-    - name: Quadlet | Set vars | v2 | {{ item.name | replace('-node', '') }}
+    - name: Quadlet | Set vars | v2 | {{ testnet_container_name | replace('-node', '') }}
       when: testnet_container_name == "v2-052-1-node"
       ansible.builtin.set_fact:
         traefik_labels: "{{ traefik_labels_generic + traefik_labels_v2 }}"
 
-    - name: Quadlet container file | {{ item.name | replace('-node', '') }}
+    - name: Quadlet container file | {{ testnet_container_name | replace('-node', '') }}
       containers.podman.podman_container:
         name: "{{ testnet_container_name }}"
         image: "{{ testnet_container_image }}"
@@ -136,8 +136,6 @@
         env:
           COSMOS_CHAIN_ID: "{{ testnet_chainid }}"
           COSMOS_MONIKER: "{{ testnet_container_name }}"
-          GENESIS_ENABLED: "{{ testnet_genesis_enabled }}"
-          GENESIS_VALIDATORS_NUMBER: "{{ testnet_genesis_validators_number }}"
         ports:
           - "{{ testnet_container_prometheus_port }}:26660"
           - "{{ testnet_container_p2p_port }}:26656"
@@ -159,20 +157,20 @@
             WantedBy=default.target
       notify: Restart Cosmos node {{ testnet_container_name }}
 
-    - name: Enable systemd service | {{ item.name | replace('-node', '') }}
+    - name: Enable systemd service | {{ testnet_container_name | replace('-node', '') }}
       ansible.builtin.systemd:
         name: "{{ testnet_container_name }}"
         enabled: true
         state: started
         daemon_reload: true
 
-    - name: Alloy | Edit configuration | {{ item.name | replace('-node', '') }}
+    - name: Alloy | Edit configuration | {{ testnet_container_name | replace('-node', '') }}
       ansible.builtin.blockinfile:
         path: "{{ testnet_config_path }}/config.alloy"
-        marker: /// {mark} ANSIBLE MANAGED BLOCK - cosmos_sdk_{{ item.name | replace('-node', '') | replace('-', '_') }}
+        marker: /// {mark} ANSIBLE MANAGED BLOCK - cosmos_sdk_{{ testnet_container_name | replace('-node', '') | replace('-', '_') }}
         append_newline: true
         block: |
-          prometheus.scrape "cosmos_sdk_{{ item.name | replace('-node', '') | replace('-', '_') }}" {
+          prometheus.scrape "cosmos_sdk_{{ testnet_container_name | replace('-node', '') | replace('-', '_') }}" {
             targets = [{
               __address__ = "{{ ansible_hostname }}:{{ testnet_container_prometheus_port }}",
             }]
@@ -182,7 +180,7 @@
       notify: Restart alloy
 
   rescue:
-    - name: Healthchecks.io | Send a fail signal | {{ item.name | replace('-node', '') }}
+    - name: Healthchecks.io | Send a fail signal | {{ testnet_container_name | replace('-node', '') }}
       when: semaphore_scheduled is defined and semaphore_scheduled | bool
       community.healthchecksio.ping:
         state: present
@@ -191,7 +189,7 @@
         api_key: "{{ healthchecksio_api_key }}"
       changed_when: false
 
-    - name: Something went wrong | {{ item.name | replace('-node', '') }}
+    - name: Something went wrong | {{ testnet_container_name | replace('-node', '') }}
       ansible.builtin.fail:
         msg: An error occured
       when: not ansible_check_mode

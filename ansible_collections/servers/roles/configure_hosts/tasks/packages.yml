@@ -11,6 +11,7 @@
       - fish
       - fzf
       - just
+      - skopeo
       - unzip
       - zoxide
     state: present
