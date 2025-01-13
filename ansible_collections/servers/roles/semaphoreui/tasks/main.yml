@@ -32,6 +32,7 @@
       SEMAPHORE_ADMIN: admin
       SEMAPHORE_ADMIN_PASSWORD: "{{ semaphore_admin_password }}"
       SEMAPHORE_ACCESS_KEY_ENCRYPTION: "{{ semaphore_access_key_encryption }}"
+      SEMAPHORE_PORT: 3400
     network: host
     volumes:
       - semaphoreui.volume:/mnt/playbooks
