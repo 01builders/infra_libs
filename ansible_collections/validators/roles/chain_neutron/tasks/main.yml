@@ -1,0 +1,111 @@
+---
+- name: Set facts
+  ansible.builtin.set_fact:
+    global_chain_id: "{{ chain_neutron_chain_id }}"
+    global_cosmos_validator_watcher_image: "{{ chain_neutron_cosmos_validator_watcher_image }}"
+    global_user: "{{ chain_neutron_user }}"
+    global_alerts: "{{ chain_neutron_alerts }}"
+    global_network: "{{ chain_neutron_network }}"
+    global_cosmovisor_upgrade_name: "{{ chain_neutron_cosmovisor_upgrade_name }}"
+    global_cosmovisor_version: "{{ chain_neutron_cosmovisor_version }}"
+    global_appd_name: "{{ chain_neutron_appd_name }}"
+    global_appd_version: "{{ chain_neutron_appd_version }}"
+    global_appd_repo_url: "{{ chain_neutron_appd_repo_url }}"
+    global_appd_p2p_port: "{{ chain_neutron_appd_p2p_port }}"
+    global_appd_rpc_port: "{{ chain_neutron_appd_rpc_port }}"
+    global_appd_prometheus_port: "{{ chain_neutron_appd_prometheus_port }}"
+    global_home_dir: /home/{{ chain_neutron_user }}/.neutrond
+    global_watcher_prometheus_port: "{{ chain_neutron_watcher_prometheus_port }}"
+    global_watcher_quadlet_command:
+      - --http-addr :{{ chain_neutron_watcher_prometheus_port }}
+      - --no-gov
+      - --no-staking
+      - --no-commission
+      - --node https://neutron-rpc.polkachu.com
+      - --node http://localhost:{{ chain_neutron_appd_rpc_port }}
+      - --validator {{ chain_neutron_validator_pubkey }}:{{ chain_neutron_chain_id }}
+    global_configuration_app_lines: "{{ chain_neutron_configuration_app_lines }}"
+    global_configuration_client_lines: "{{ chain_neutron_configuration_client_lines }}"
+    global_configuration_config_lines: "{{ chain_neutron_configuration_config_lines }}"
+
+- name: Install required packages
+  ansible.builtin.apt:
+    name:
+      - build-essential
+      - git
+      - make
+      - lz4
+      - gcc
+    state: present
+
+- name: Create user
+  ansible.builtin.user:
+    name: "{{ chain_neutron_user }}"
+    group: users
+    system: true
+    create_home: true
+    state: present
+
+- name: Add user to systemd-journal group
+  ansible.builtin.user:
+    name: "{{ chain_neutron_user }}"
+    groups: systemd-journal
+    append: true
+
+- name: Create directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    recurse: true
+    mode: "0700"
+    owner: "{{ chain_neutron_user }}"
+    group: users
+  loop:
+    - "/home/{{ chain_neutron_user }}/go/bin"
+
+- name: Install Go
+  ansible.builtin.include_role:
+    name: install_go
+
+- name: Cosmoshubd + Cosmovisor
+  ansible.builtin.include_role:
+    name: binarybuilders.validators.global
+    tasks_from: appd-binary-cosmovisor.yml
+
+- name: Cosmoshubd configuration
+  ansible.builtin.include_role:
+    name: binarybuilders.validators.global
+    tasks_from: appd-configuration.yml
+
+- name: Cosmos-validator-watcher
+  ansible.builtin.include_role:
+    name: binarybuilders.validators.global
+    tasks_from: cosmos-validator-watcher.yml
+
+- name: Validator-observability
+  ansible.builtin.include_role:
+    name: binarybuilders.validators.observability
+  vars:
+    observability_alerts: "{{ global_alerts }}"
+    observability_chain_id: "{{ global_chain_id }}"
+    observability_prometheus_sdk_prometheus_port: "{{ global_appd_prometheus_port }}"
+    observability_prometheus_watcher_prometheus_port: "{{ global_watcher_prometheus_port }}"
+
+- name: Skip-Mev
+  ansible.builtin.include_tasks: slinky.yml
+
+- name: Deploy justfile
+  ansible.builtin.template:
+    src: justfile.j2
+    dest: /home/{{ chain_neutron_user }}/justfile
+    owner: "{{ chain_neutron_user }}"
+    group: users
+    mode: "0644"
+
+- name: Ensure services are started
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    state: started
+  loop:
+    - appd-{{ global_chain_id }}
+    - slinky-{{ global_chain_id }}

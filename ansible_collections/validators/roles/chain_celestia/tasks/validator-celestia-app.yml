@@ -98,8 +98,10 @@
       line: \1"0"
     - regexp: ^(pruning-interval\s*=\s*).*$
       line: \1"10"
+    - regexp: ^(pruning-keep-every\s*=\s*).*$
+      line: \1"0"
     - regexp: ^(min-retain-blocks\s*=\s*).*$
-      line: \1"1"
+      line: \1"1000"
   become: true
   become_user: "{{ chain_celestia_user }}"
 
@@ -128,6 +130,8 @@
     # Discard abci responses (saves disk space)
     - regexp: ^(discard_abci_responses\s*=\s*).*$
       line: \1true
+    - regexp: ^(ttl-num-blocks\s*=\s*).*$
+      line: \1"12"
   become: true
   become_user: "{{ chain_celestia_user }}"
 

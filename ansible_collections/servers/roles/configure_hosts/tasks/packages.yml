@@ -13,6 +13,7 @@
       - just
       - skopeo
       - unzip
+      - vim
       - zoxide
     state: present
     update_cache: true

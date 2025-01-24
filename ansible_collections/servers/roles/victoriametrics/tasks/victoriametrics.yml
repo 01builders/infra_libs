@@ -15,6 +15,7 @@
     command:
       - --storageDataPath=/storage
       - --httpListenAddr=:8428
+      - -retentionPeriod=3
     network: host
     volumes:
       - victoriametrics.volume:/storage:bind

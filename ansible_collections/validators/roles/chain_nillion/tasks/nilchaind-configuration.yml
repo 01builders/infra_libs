@@ -101,6 +101,15 @@
     # Timeout commit
     - regexp: ^(timeout_commit\s*=\s*).*$
       line: \1"1s"
+    # Set seeds
+    - regexp: ^(seeds\s*=\s*).*$
+      line: \1"ceb159a85ca603121225865c801cc97653c82820@84.32.32.150:18600,20e1000e88125698264454a884812746c2eb4807@seeds.lavenderfive.com:28156"
+    # Set persistent_peers
+    - regexp: ^(persistent_peers\s*=\s*).*$
+      line: \1"41c28139a0381b04c9354b2f6c974f880bf8c843@184.107.185.205:18600,a8038f2de293de4f28797e1e069bbed858dfb9c6@45.250.252.75:56316"
+    # Set external_address
+    - regexp: ^(external_address=\s*=\s*).*$
+      line: \1"188.245.251.53:{{ chain_nillion_nilchaind_p2p_port }}"
 
 - name: Configuration | client.toml
   ansible.builtin.replace:

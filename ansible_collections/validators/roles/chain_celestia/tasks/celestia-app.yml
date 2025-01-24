@@ -38,7 +38,7 @@
     chdir: /home/{{ chain_celestia_user }}/celestia-app
     cmd: |
       source ~/.bash_profile
-      make install
+      nice -n 19 make install
   args:
     executable: /bin/bash
   become: true

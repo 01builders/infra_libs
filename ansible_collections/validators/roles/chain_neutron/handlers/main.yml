@@ -1,0 +1,28 @@
+---
+- name: Restart appd-{{ chain_neutron_chain_id }}
+  ansible.builtin.systemd_service:
+    name: appd-{{ chain_neutron_chain_id }}
+    state: restarted
+
+- name: Restart slinky-{{ chain_neutron_chain_id }}
+  ansible.builtin.systemd_service:
+    name: slinky-{{ chain_neutron_chain_id }}
+    state: restarted
+
+- name: Restart cosmos-validator-watcher-{{ chain_neutron_chain_id }}
+  ansible.builtin.systemd_service:
+    name: cosmos-validator-watcher-{{ chain_neutron_chain_id }}
+    state: restarted
+
+- name: Restart alloy
+  ansible.builtin.systemd_service:
+    name: alloy
+    daemon_reload: true
+    state: restarted
+
+- name: Restart vmalert
+  ansible.builtin.systemd_service:
+    name: vmalert
+    daemon_reload: true
+    state: restarted
+  delegate_to: observability

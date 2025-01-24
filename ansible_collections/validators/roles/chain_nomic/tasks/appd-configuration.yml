@@ -1,0 +1,30 @@
+---
+- name: Check if node is already initiated
+  ansible.builtin.stat:
+    path: /home/{{ chain_nomic_user }}/.{{ chain_nomic_chain_id }}/tendermint/config/config.toml
+  changed_when: false
+  register: node_initiated
+  ignore_errors: true
+
+- name: Binary | Initialize Cosmovisor
+  when: not node_initiated.stat.exists # noqa: no-handler
+  ansible.builtin.shell:
+    cmd: |
+      source ~/.bash_profile
+      nomic start
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ global_user }}"
+  changed_when: true
+  ignore_errors: true
+  register: ignore_errors_register
+
+- name: Configuration | config.toml
+  when: global_configuration_config_lines is defined
+  ansible.builtin.replace:
+    path: "{{ global_home_dir }}/.{{ chain_nomic_chain_id }}/tendermint/config/config.toml"
+    regexp: "{{ item.regexp }}"
+    replace: "{{ item.line }}"
+  notify: Restart appd-{{ global_chain_id }}
+  loop: "{{ global_configuration_config_lines }}"

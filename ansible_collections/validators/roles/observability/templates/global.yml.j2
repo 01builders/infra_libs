@@ -3,7 +3,7 @@ groups:
   - name: Global
     rules:
 
-    - alert: NodeFilesystemReadonly
+    - alert: FilesystemReadonly
       expr: node_filesystem_readonly{fstype!~"rootfs|nfs4", instance=~".*validator.*"} > 0
       for: 5m
       labels:
@@ -12,29 +12,55 @@ groups:
       annotations:
         description: 'Filesystem "{{ $labels.mountpoint }}" on "{{ $labels.instance }}" is read-only.'
 
-    - alert: NodeDiskFull3days
+    - alert: DiskFullIn1Week
       expr: |
-        predict_linear(node_filesystem_free_bytes{fstype!~"rootfs|nfs4|tmpfs", instance=~".*validator.*", instance!~".*hyperliquid.*"}[24h], 3 * 24 * 3600) < 0
+        predict_linear(
+          (
+            node_filesystem_avail_bytes{
+              fstype!~"rootfs|nfs4|tmpfs",
+              instance=~".*validator.*"
+            }[24h]
+          ),
+          7 * 24 * 3600
+        ) < 0
         and
-        deriv(predict_linear(node_filesystem_free_bytes{fstype!~"rootfs|nfs4|tmpfs", instance=~".*validator.*", instance!~".*hyperliquid.*"}[24h], 3 * 24 * 3600))[24h] < -5000000
-      for: 1h
+        rate(
+          node_filesystem_avail_bytes{
+            fstype!~"rootfs|nfs4|tmpfs",
+            instance=~".*validator.*"
+          }[24h]
+        ) < 0
+      for: 5m
       labels:
         severity: warning
         component: node_exporter
       annotations:
-        description: 'Filesystem "{{ $labels.mountpoint }}" on "{{ $labels.instance }}" will be out of diskspace within 3 days based on current growth rate.'
+        description: 'Filesystem "{{ $labels.mountpoint }}" on "{{ $labels.instance }}" will be out of diskspace within 1 week based on current growth rate.'
 
-    - alert: NodeDiskFull6H
+    - alert: DiskFull12H
       expr: |
-        predict_linear(node_filesystem_free_bytes{fstype!~"rootfs|nfs4|tmpfs", instance=~".*validator.*"}[12h], 6 * 3600) < 0
+        predict_linear(
+          (
+            node_filesystem_avail_bytes{
+              fstype!~"rootfs|nfs4|tmpfs",
+              instance=~".*validator.*"
+            }[6h]
+          ),
+          12 * 3600
+        ) < 0
         and
-        deriv(predict_linear(node_filesystem_free_bytes{fstype!~"rootfs|nfs4|tmpfs", instance=~".*validator.*"}[12h], 6 * 3600))[12h] < -10000000
-      for: 15m
+        rate(
+          node_filesystem_avail_bytes{
+            fstype!~"rootfs|nfs4|tmpfs",
+            instance=~".*validator.*"
+          }[6h]
+        ) < 0
+      for: 5m
       labels:
         severity: critical
         component: node_exporter
       annotations:
-        description: 'Filesystem "{{ $labels.mountpoint }}" on "{{ $labels.instance }}" will be out of diskspace within 6 hours based on current growth rate.'
+        description: 'Filesystem "{{ $labels.mountpoint }}" on "{{ $labels.instance }}" will be out of diskspace within 12 hours based on current growth rate.'
 
     - alert: NodeDiskFull
       expr: node_filesystem_avail_bytes/node_filesystem_size_bytes < 0.01
@@ -45,28 +71,57 @@ groups:
       annotations:
         description: 'Filesystem "{{ $labels.mountpoint }}" on "{{ $labels.instance }}" is out of diskspace (< 1% free).'
 
-    - alert: NodeInodeFull3days
+    - alert: InodesFreeExhaustionIn1Week
       expr: |
-        predict_linear(node_filesystem_files_free{fstype!~"rootfs|nfs4|tmpfs", instance=~".*validator.*"}[24h], 3 * 24 * 3600) < 0
+        predict_linear(
+          (
+            node_filesystem_files_free{
+              fstype!~"rootfs|nfs4|tmpfs",
+              instance=~".*validator.*"
+            }[24h]
+          ),
+          7 * 24 * 3600
+        ) < 0
         and
-        deriv(predict_linear(node_filesystem_files_free{fstype!~"rootfs|nfs4|tmpfs", instance=~".*validator.*"}[24h], 3 * 24 * 3600))[24h] < -1000
-      for: 1h
+        rate(
+          node_filesystem_files_free{
+            fstype!~"rootfs|nfs4|tmpfs",
+            instance=~".*validator.*"
+          }[24h]
+        ) < 0
+      for: 5m
       labels:
         severity: warning
         component: node_exporter
       annotations:
-        description: 'Filesystem "{{ $labels.mountpoint }}" on "{{ $labels.instance }}" will be out of inodes within 3 days based on current growth rate.'
+        description: 'Filesystem "{{ $labels.mountpoint }}" on "{{ $labels.instance }}" will be out of inodes within 1 week based on current growth rate.'
 
-    - alert: NodeInodeFull12H
-      expr: predict_linear(node_filesystem_files_free{fstype!~"rootfs|nfs4|tmpfs", instance=~".*validator.*"}[4h], 12 * 3600) < 0
-      for: 15m
+    - alert: InodesFreeExhaustionIn12Hours
+      expr: |
+        predict_linear(
+          (
+            node_filesystem_files_free{
+              fstype!~"rootfs|nfs4|tmpfs",
+              instance=~".*validator.*"
+            }[6h]
+          ),
+          12 * 3600
+        ) < 0
+        and
+        rate(
+          node_filesystem_files_free{
+            fstype!~"rootfs|nfs4|tmpfs",
+            instance=~".*validator.*"
+          }[6h]
+        ) < 0
+      for: 5m
       labels:
         severity: critical
         component: node_exporter
       annotations:
         description: 'Filesystem "{{ $labels.mountpoint }}" on "{{ $labels.instance }}" will be out of inode numbers within 12 hours.'
 
-    - alert: NodeInodeFull
+    - alert: InodeFull
       expr: node_filesystem_files_free/node_filesystem_files{instance=~".*validator.*"} < 0.01
       for: 5m
       labels:
@@ -75,7 +130,7 @@ groups:
       annotations:
         description: 'Filesystem "{{ $labels.mountpoint }}" on "{{ $labels.instance }}" out of inodes (< 1% free).'
 
-    - alert: NodeOutOfMemory
+    - alert: OutOfMemory
       expr: node_memory_MemAvailable_bytes{instance=~".*validator.*"} / node_memory_MemTotal_bytes * 100 < 10
       for: 2m
       labels:
@@ -84,7 +139,7 @@ groups:
       annotations:
         description: 'Node memory is filling up < 10% left\n  VALUE = {{ $value }}\n LABELS: {{ $labels.instance }}'
 
-    - alert: NodeHighCPULoad
+    - alert: HighCPULoad
       expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle", instance=~".*validator.*"}[10m])) * 100) > 80
       for: 0m
       labels:
@@ -93,7 +148,7 @@ groups:
       annotations:
         description: 'CPU load is > 80%\n  VALUE = {{ $value }}\n LABELS: {{ $labels.instance }}'
 
-    - alert: NodeTimeOutOfSync
+    - alert: TimeOutOfSync
       expr: node_timex_sync_status{instance=~".*validator.*"} != 1
       for: 5m
       labels:
@@ -102,7 +157,7 @@ groups:
       annotations:
         description: 'Time on instance "{{ $labels.instance }}" not in sync with NTP.'
 
-    - alert: NodeTextfileScrapingError
+    - alert: TextfileScrapingError
       expr: node_textfile_scrape_error{instance=~".*validator.*",} != 0
       for: 5m
       labels:

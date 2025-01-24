@@ -1,0 +1,63 @@
+---
+- name: Binary | Ensure Binary repository is present
+  ansible.builtin.git:
+    repo: "{{ global_appd_repo_url }}"
+    dest: "/home/{{ global_user }}/appd_repo"
+    version: "tags/{{ global_appd_version }}"
+  become: true
+  become_user: "{{ global_user }}"
+  register: repo_cloned
+
+- name: Binary | Build and install
+  when: repo_cloned.changed # noqa: no-handler
+  ansible.builtin.shell:
+    chdir: /home/{{ global_user }}/appd_repo
+    cmd: |
+      source ~/.bash_profile
+      nice -n 19 cargo install --locked --path .
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ global_user }}"
+  changed_when: true
+  notify: Restart appd-{{ global_chain_id }}
+
+- name: Binary | Create systemd service file
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/appd-{{ global_chain_id }}.service
+    content: |
+      [Unit]
+      Description={{ global_appd_name }} {{ global_network }} (chain_id: {{ global_chain_id }}) (Validator)
+      After=network.target
+
+      [Service]
+      Type=simple
+      ExecStart=/home/{{ global_user }}/.cargo/bin/{{ global_appd_name }} run start
+      User={{ global_user }}
+      Group=users
+      Restart=always
+      RestartSec=3
+      TimeoutStartSec=900
+      LimitNOFILE=1400000
+
+      [Install]
+      WantedBy=multi-user.target
+    mode: "0644"
+  notify: Restart appd-{{ global_chain_id }}
+
+- name: Binary | Enable systemd service
+  ansible.builtin.systemd:
+    name: "appd-{{ global_chain_id }}"
+    enabled: true
+    daemon_reload: true
+
+- name: Binary | Add sudoers file
+  ansible.builtin.copy:
+    dest: "/etc/sudoers.d/{{ global_user }}-appd-{{ global_chain_id }}"
+    content: |
+      {{ global_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl start appd-{{ global_chain_id }}.service
+      {{ global_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop appd-{{ global_chain_id }}.service
+      {{ global_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart appd-{{ global_chain_id }}.service
+      {{ global_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl status appd-{{ global_chain_id }}.service
+    mode: "0440"
+    validate: /usr/sbin/visudo -cf %s

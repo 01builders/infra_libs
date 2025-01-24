@@ -1,0 +1,90 @@
+# use with https://github.com/casey/just
+#
+# Xion validator operations
+#
+
+# Set the shell to bash with error handling
+# set shell := ["bash", "-euo", "pipefail"]
+
+# Default recipe to show available commands
+default:
+    @just --list
+
+# Variables
+validator_service := "appd-{{ chain_neutron_chain_id }}.service"
+oracle_service := "slinky-{{ chain_neutron_chain_id }}.service"
+log_lines := "100"
+
+### VALIDATOR-APP
+
+# Start {{ chain_neutron_appd_name }}-{{ chain_neutron_chain_id }} systemd service
+appd-start:
+    @echo "Starting {{ chain_neutron_appd_name }}-{{ chain_neutron_chain_id }}..."
+    sudo /usr/bin/systemctl start {% raw %}{{ validator_service }}
+{% endraw %}
+    @sleep 2
+    @just appd-status
+
+# Stop {{ chain_neutron_appd_name }}-{{ chain_neutron_chain_id }} systemd service
+appd-stop:
+    @echo "Stopping {{ chain_neutron_appd_name }}-{{ chain_neutron_chain_id }}..."
+    sudo /usr/bin/systemctl stop {% raw %}{{ validator_service }}
+{% endraw %}
+    @sleep 2
+    @just appd-status
+
+# Restart {{ chain_neutron_appd_name }}-{{ chain_neutron_chain_id }} systemd service
+appd-restart:
+    @echo "Restarting {{ chain_neutron_appd_name }}-{{ chain_neutron_chain_id }}..."
+    sudo /usr/bin/systemctl restart {% raw %}{{ validator_service }}
+{% endraw %}
+    @sleep 2
+    @just appd-status
+
+# Check {{ chain_neutron_appd_name }}-{{ chain_neutron_chain_id }} systemd service status
+appd-status:
+    @echo "{{ chain_neutron_appd_name }}-{{ chain_neutron_chain_id }} status:"
+    sudo /usr/bin/systemctl status {% raw %}{{ validator_service }}
+{% endraw %}
+
+# Consult {{ chain_neutron_appd_name }}-{{ chain_neutron_chain_id }} systemd service logs
+appd-logs:
+    journalctl --unit={% raw %}{{ validator_service }} --follow
+{% endraw %}
+
+### ORACLE
+
+# Start slinky-{{ chain_neutron_chain_id }} systemd service
+oracle-start:
+    @echo "Starting slinky-{{ chain_neutron_chain_id }}..."
+    sudo /usr/bin/systemctl start {% raw %}{{ oracle_service }}
+{% endraw %}
+    @sleep 2
+    @just oracle-status
+
+# Stop slinky-{{ chain_neutron_chain_id }} systemd service
+oracle-stop:
+    @echo "Stopping slinky-{{ chain_neutron_chain_id }}..."
+    sudo /usr/bin/systemctl stop {% raw %}{{ oracle_service }}
+{% endraw %}
+    @sleep 2
+    @just oracle-status
+
+# Restart slinky-{{ chain_neutron_chain_id }} systemd service
+oracle-restart:
+    @echo "Restarting slinky-{{ chain_neutron_chain_id }}..."
+    sudo /usr/bin/systemctl restart {% raw %}{{ oracle_service }}
+{% endraw %}
+    @sleep 2
+    @just oracle-status
+
+# Check slinky-{{ chain_neutron_chain_id }} systemd service status
+oracle-status:
+    @echo "slinky-{{ chain_neutron_chain_id }} status:"
+    sudo /usr/bin/systemctl status {% raw %}{{ oracle_service }}
+{% endraw %}
+
+# Consult slinky-{{ chain_neutron_chain_id }} systemd service logs
+oracle-logs:
+    journalctl --unit={% raw %}{{ oracle_service }} --follow
+{% endraw %}

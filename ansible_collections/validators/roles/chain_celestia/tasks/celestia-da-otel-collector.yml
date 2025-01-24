@@ -7,7 +7,7 @@
 - name: Celestia-da-otel-collector | Set testnet vars
   when: chain_celestia_network == "mocha"
   ansible.builtin.set_fact:
-    remote_otel_endpoint: https://otel.celestia-mocha.com
+    remote_otel_endpoint: https://otel.mocha.celestia.observer
 
 - name: Celestia-da-otel-collector | Set mainnet vars
   when: chain_celestia_network == "mainnet"

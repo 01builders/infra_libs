@@ -15,8 +15,8 @@ groups:
         grafanaDashboardUrl: "http://{{ hostvars['observability'].ansible_host }}.{{ public_domain }}:3000/d/cosmos-validator-watcher/cosmos-validator-watcher-by-chain?var-chain_id={{ observability_chain_id }}"
 
     - alert: MissingBlocks
-      expr: increase(cosmos_validator_watcher_solo_missed_blocks{chain_id="{{ observability_chain_id }}"}[5m]) > 10
-      for: 5m
+      expr: increase(cosmos_validator_watcher_solo_missed_blocks{chain_id="{{ observability_chain_id }}"}[3m]) > 10
+      for: 3m
       labels:
         severity: warning
         service: validator
@@ -26,16 +26,17 @@ groups:
         grafanaDashboardUrl: http://{{ hostvars['observability'].ansible_host }}.{{ public_domain }}:3000/d/cosmos-validator-watcher/cosmos-validator-watcher-by-chain?var-chain_id={{ observability_chain_id }}
 
     - alert: NoValidatedBlocks
-      expr: rate(cosmos_validator_watcher_validated_blocks{chain_id="{{ observability_chain_id }}"}[5m]) == 0
-      for: 5m
+      expr: rate(cosmos_validator_watcher_validated_blocks{chain_id="{{ observability_chain_id }}"}[3m]) == 0
+      for: 3m
       labels:
-        severity: warning
+        severity: critical
         service: validator
         component: cosmos-validator-watcher
       annotations:
         description: "{% raw %}Chain `{{ $labels.chain_id }}` validator on `{{ $labels.instance }}` does not validate new blocks!{% endraw %}"
         grafanaDashboardUrl: http://{{ hostvars['observability'].ansible_host }}.{{ public_domain }}:3000/d/cosmos-validator-watcher/cosmos-validator-watcher-by-chain?var-chain_id={{ observability_chain_id }}
 
+{% if observability_alert_disable_lowinrank is not defined or not observability_alert_disable_lowinrank %}
     - alert: LowInRank
       expr: cosmos_validator_watcher_rank{chain_id="{{ observability_chain_id }}"} > (max(cosmos_validator_watcher_active_set{chain_id="{{ observability_chain_id }}"}) - 10)
       for: 5m
@@ -47,6 +48,7 @@ groups:
         description: "{% raw %}Chain `{{ $labels.chain_id }}` validator on `{{ $labels.instance }}` rank is `{{ $value }}`!{% endraw %}"
         grafanaDashboardUrl: http://{{ hostvars['observability'].ansible_host }}.{{ public_domain }}:3000/d/cosmos-validator-watcher/cosmos-validator-watcher-by-chain?var-chain_id={{ observability_chain_id }}
 
+{% endif %}
     - alert: IsJailed
       expr: cosmos_validator_watcher_is_jailed{chain_id="{{ observability_chain_id }}"} == 1
       for: 5m

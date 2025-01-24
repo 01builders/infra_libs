@@ -1,0 +1,95 @@
+---
+- name: CometBFT | Configuration | Firewall Allow Incoming on public interface
+  community.general.ufw:
+    rule: allow
+    interface: "{{ public_interface }}"
+    direction: in
+    port: "{{ item.port }}"
+    proto: "{{ item.proto }}"
+  loop:
+    - { port: "{{ chain_penumbra_cometbft_p2p_port }}", proto: tcp }
+
+- name: CometBFT | Configuration | Check configuration file
+  ansible.builtin.stat:
+    path: "{{ chain_penumbra_home_dir }}/network_data/node0/cometbft/config/genesis.json"
+  register: cometbft_init
+
+- name: CometBFT | Configuration | Create directories
+  when: not cometbft_init.stat.exists # noqa: no-handler
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    recurse: true
+    mode: "0700"
+    owner: "{{ chain_penumbra_user }}"
+    group: users
+  loop:
+    - "/home/{{ chain_penumbra_user }}/.cometbft"
+    - "/home/{{ chain_penumbra_user }}/.cometbft/config"
+    - "/mnt/{{ configure_hosts_hetzner_volume_mountpoint }}/penumbra_home_dir"
+
+- name: CometBFT | Configuration | Create symlink for penumbra on Hetzner volume
+  ansible.builtin.file:
+    src: "/mnt/{{ configure_hosts_hetzner_volume_mountpoint }}/penumbra_home_dir"
+    dest: "{{ chain_penumbra_home_dir }}"
+    state: link
+    mode: "0700"
+    owner: "{{ chain_penumbra_user }}"
+    group: users
+    force: true
+
+- name: CometBFT | Configuration | Initialize node
+  when: not cometbft_init.stat.exists # noqa: no-handler
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      source ~/.bash_profile
+      {{ chain_penumbra_appd_name }} network join \
+        --moniker binary-builders \
+        --external-address {{ ansible_default_ipv4.address }}:{{ chain_penumbra_appd_p2p_port }} \
+        https://penumbra-rpc.polkachu.com/
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ chain_penumbra_user }}"
+  changed_when: true
+  notify:
+    - Restart appd-{{ chain_penumbra_chain_id }}
+    - Restart cometbft-{{ chain_penumbra_chain_id }}
+
+- name: CometBFT | Configuration | Download genesis.json
+  when: not cometbft_init.stat.exists # noqa: no-handler
+  ansible.builtin.get_url:
+    url: https://snapshots.polkachu.com/genesis/penumbra/genesis.json
+    dest: "{{ chain_penumbra_home_dir }}/network_data/node0/cometbft/config/genesis.json"
+    mode: "0644"
+    force: true
+  become: true
+  become_user: "{{ chain_penumbra_user }}"
+  notify:
+    - Restart appd-{{ chain_penumbra_chain_id }}
+    - Restart cometbft-{{ chain_penumbra_chain_id }}
+
+- name: CometBFT | Configuration | Download addrbook.json
+  when: not cometbft_init.stat.exists # noqa: no-handler
+  ansible.builtin.get_url:
+    url: https://snapshots.polkachu.com/addrbook/penumbra/addrbook.json
+    dest: "{{ chain_penumbra_home_dir }}/network_data/node0/cometbft/config/addrbook.json"
+    mode: "0644"
+    force: true
+  become: true
+  become_user: "{{ chain_penumbra_user }}"
+  notify:
+    - Restart appd-{{ chain_penumbra_chain_id }}
+    - Restart cometbft-{{ chain_penumbra_chain_id }}
+
+- name: CometBFT | Configuration | config.toml
+  when: chain_penumbra_configuration_config_lines is defined
+  ansible.builtin.replace:
+    path: "{{ chain_penumbra_home_dir }}/network_data/node0/cometbft/config/config.toml"
+    regexp: "{{ item.regexp }}"
+    replace: "{{ item.line }}"
+  notify:
+    - Restart appd-{{ chain_penumbra_chain_id }}
+    - Restart cometbft-{{ chain_penumbra_chain_id }}
+  loop: "{{ chain_penumbra_configuration_config_lines }}"

@@ -6,8 +6,8 @@ groups:
       expr: (sum(up{job="prometheus.scrape.cosmos_sdk_{{ marker_id | replace('-', '_') }}"}) == 0) or absent(up{job="prometheus.scrape.cosmos_sdk_{{ marker_id | replace('-', '_') }}"})
       for: 3m
       annotations:
-        title: "Instance {% raw %}{{ $labels.instance }}{% endraw %} down"
-        description: "{% raw %}{{ $labels.job }} on {{ $labels.instance }}{% endraw %} has been down for more than 3 minutes"
+        title: "Instance cosmos_sdk_{{ marker_id | replace('-', '_') }} down"
+        description: "Job on {% raw %}{{ $labels.instance }}{% endraw %} has been down for more than 3 minutes"
       labels:
         severity: critical
         service: validator

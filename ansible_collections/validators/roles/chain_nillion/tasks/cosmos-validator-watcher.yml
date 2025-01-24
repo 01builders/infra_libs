@@ -13,7 +13,7 @@
     quadlet_command:
       - --http-addr :{{ chain_nillion_watcher_prometheus_port }}
       - --node http://localhost:{{ chain_nillion_nilchaind_rpc_port }}
-      - --validator 636D3F847A47A01472489C28224702AA6F50F49A:{{ chain_nillion_chain_id }}
+      - --validator 3F319C264104133C07AC9CEB93688E6AEB2FAB2C:{{ chain_nillion_chain_id }}
 
 - name: Cosmos-validator-watcher | Quadlet container file
   containers.podman.podman_container:

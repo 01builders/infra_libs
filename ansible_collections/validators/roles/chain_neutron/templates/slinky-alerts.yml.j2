@@ -1,0 +1,27 @@
+groups:
+  - name: neutron_oracle_slinky
+    rules:
+
+    - alert: InstanceDown
+      expr: up{job="prometheus.scrape.slinky_{{ chain_neutron_chain_id | replace('-', '_') }}"} == 0
+      for: 3m
+      annotations:
+        title: "Instance prometheus.scrape.slinky_{{ chain_neutron_chain_id | replace('-', '_') }} down"
+        description: "{{ chain_neutron_chain_id | replace('-', '_') }} has been down for more than 3 minutes"
+      labels:
+        severity: critical
+        service: validator
+        component: cosmos-sdk
+        chain: neutron
+        grafanaDashboardUrl: "http://{{ hostvars['observability'].ansible_host }}.{{ public_domain }}:3000/d/cosmos-validator-watcher/cosmos-validator-watcher-by-chain?var-chain_id={{ chain_neutron_chain_id }}"
+
+    - alert: HighAPIErrorRate
+      expr: |
+        sum(rate(side_car_api_http_status_code{status_code=~"5..",job="prometheus.scrape.slinky_{{ chain_neutron_chain_id | replace('-', '_') }}"}[5m])) by (provider)
+        /
+        sum(rate(side_car_api_http_status_code{job="prometheus.scrape.slinky_{{ chain_neutron_chain_id | replace('-', '_') }}"}[5m])) by (provider) > 0.6
+      labels:
+        severity: warning
+        service: validator
+        component: oracle
+        chain: neutron

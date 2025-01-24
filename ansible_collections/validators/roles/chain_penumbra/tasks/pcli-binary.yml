@@ -1,0 +1,30 @@
+---
+- name: Pcli | Check current version
+  ansible.builtin.shell: |
+    pcli --version
+  args:
+    executable: /bin/bash
+  register: check_pcli
+  failed_when: false
+  changed_when: false
+
+- name: Pcli | Set comparison string
+  ansible.builtin.set_fact:
+    pcli_version_compare: "{{ chain_penumbra_appd_version | replace('v', '') }}"
+
+- name: Pcli | Download
+  when: pcli_version_compare not in check_pcli.stdout
+  ansible.builtin.unarchive:
+    dest: /tmp
+    mode: "777"
+    remote_src: true
+    src: https://github.com/penumbra-zone/penumbra/releases/download/{{ chain_penumbra_appd_version }}/pcli-x86_64-unknown-linux-gnu.tar.gz
+
+- name: Pcli | Install
+  when: pcli_version_compare not in check_pcli.stdout
+  ansible.builtin.copy:
+    dest: /usr/local/bin/pcli
+    force: true
+    mode: "755"
+    remote_src: true
+    src: /tmp/pcli-x86_64-unknown-linux-gnu/pcli

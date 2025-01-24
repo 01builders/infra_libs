@@ -1,0 +1,81 @@
+---
+- name: Configuration | Firewall Allow Incoming on public interface
+  community.general.ufw:
+    rule: allow
+    interface: "{{ public_interface }}"
+    direction: in
+    port: "{{ item.port }}"
+    proto: "{{ item.proto }}"
+  loop:
+    - { port: "{{ global_appd_p2p_port }}", proto: tcp }
+
+- name: Configuration | Check configuration file
+  ansible.builtin.stat:
+    path: "{{ global_home_dir }}/config/config.toml"
+  register: node_init
+
+- name: Configuration | Initialize Validator node
+  when: not node_init.stat.exists # noqa: no-handler
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      source ~/.bash_profile
+      {{ global_appd_name }} init binary-builders --chain-id {{ global_chain_id }}
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ global_user }}"
+  changed_when: true
+
+- name: Configuration | Bootstrap addrbook.json
+  when:
+    - not node_init.stat.exists # noqa: no-handler
+    - global_addrbook_url is defined
+    - global_addrbook_url | trim != ""
+  ansible.builtin.get_url:
+    url: "{{ global_addrbook_url }}"
+    dest: "{{ global_home_dir }}/config/addrbook.json"
+    mode: "0644"
+    force: true
+  become: true
+  become_user: "{{ global_user }}"
+
+- name: Configuration | Bootstrap genesis.json
+  when:
+    - not node_init.stat.exists # noqa: no-handler
+    - global_genesis_url is defined
+    - global_genesis_url | trim != ""
+  ansible.builtin.get_url:
+    url: "{{ global_genesis_url }}"
+    dest: "{{ global_home_dir }}/config/genesis.json"
+    mode: "0644"
+    force: true
+  become: true
+  become_user: "{{ global_user }}"
+
+- name: Configuration | app.toml
+  when: global_configuration_app_lines is defined
+  ansible.builtin.replace:
+    path: "{{ global_home_dir }}/config/app.toml"
+    regexp: "{{ item.regexp }}"
+    replace: "{{ item.line }}"
+  notify: Restart appd-{{ global_chain_id }}
+  loop: "{{ global_configuration_app_lines }}"
+
+- name: Configuration | config.toml
+  when: global_configuration_config_lines is defined
+  ansible.builtin.replace:
+    path: "{{ global_home_dir }}/config/config.toml"
+    regexp: "{{ item.regexp }}"
+    replace: "{{ item.line }}"
+  notify: Restart appd-{{ global_chain_id }}
+  loop: "{{ global_configuration_config_lines }}"
+
+- name: Configuration | client.toml
+  when: global_configuration_client_lines is defined
+  ansible.builtin.replace:
+    path: "{{ global_home_dir }}/config/client.toml"
+    regexp: "{{ item.regexp }}"
+    replace: "{{ item.line }}"
+  notify: Restart appd-{{ global_chain_id }}
+  loop: "{{ global_configuration_client_lines }}"

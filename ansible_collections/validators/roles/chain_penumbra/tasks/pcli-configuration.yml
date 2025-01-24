@@ -1,0 +1,29 @@
+---
+- name: Pcli | Configuration | Check configuration file
+  ansible.builtin.stat:
+    path: "/home/{{ chain_penumbra_user }}/.local/share/pcli/config.toml"
+  register: pcli_init
+
+- name: Pcli | Configuration | Create directories
+  when: not pcli_init.stat.exists # noqa: no-handler
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    recurse: true
+    mode: "0700"
+    owner: "{{ chain_penumbra_user }}"
+    group: users
+  loop:
+    - "/home/{{ chain_penumbra_user }}/.local/share/pcli"
+
+- name: Pcli | Configuration | Initialize
+  when: not pcli_init.stat.exists # noqa: no-handler
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      pcli init --grpc-url localhost:8080 soft-kms generate
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ chain_penumbra_user }}"
+  changed_when: true

@@ -1,0 +1,72 @@
+---
+- name: CometBFT | Check current version
+  ansible.builtin.shell: |
+    {{ chain_penumbra_cometbft_name }} version
+  args:
+    executable: /bin/bash
+  register: check_cometbft
+  failed_when: false
+  changed_when: false
+
+- name: CometBFT | Set comparison string
+  ansible.builtin.set_fact:
+    cometbft_version_compare: "{{ chain_penumbra_cometbft_version | replace('v', '') }}"
+
+- name: CometBFT | Download
+  when: cometbft_version_compare not in check_cometbft.stdout
+  ansible.builtin.unarchive:
+    dest: /tmp
+    mode: "777"
+    remote_src: true
+    src: https://github.com/cometbft/cometbft/releases/download/{{ chain_penumbra_cometbft_version }}/cometbft_{{ chain_penumbra_cometbft_version | replace('v', '') }}_linux_amd64.tar.gz
+
+- name: CometBFT | Install
+  when: cometbft_version_compare not in check_cometbft.stdout
+  ansible.builtin.copy:
+    dest: /usr/local/bin/{{ chain_penumbra_cometbft_name }}
+    force: true
+    mode: "755"
+    remote_src: true
+    src: /tmp/{{ chain_penumbra_cometbft_name }}
+
+- name: CometBFT | Create systemd service file
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/cometbft-{{ chain_penumbra_chain_id }}.service
+    content: |
+      [Unit]
+      Description=CometBFT {{ chain_penumbra_network }} (chain_id: {{ chain_penumbra_chain_id }}) (Validator)
+      After=network.target
+
+      [Service]
+      Type=simple
+      ExecStart=/usr/local/bin/cometbft start --home {{ chain_penumbra_home_dir }}/network_data/node0/cometbft
+      User={{ chain_penumbra_user }}
+      Group=users
+      Restart=always
+      RestartSec=3
+      TimeoutStartSec=900
+      LimitNOFILE=1400000
+
+      [Install]
+      WantedBy=multi-user.target
+    mode: "0644"
+  notify:
+    - Restart appd-{{ chain_penumbra_chain_id }}
+    - Restart cometbft-{{ chain_penumbra_chain_id }}
+
+- name: CometBFT | Enable systemd service
+  ansible.builtin.systemd:
+    name: "cometbft-{{ chain_penumbra_chain_id }}"
+    enabled: true
+    daemon_reload: true
+
+- name: CometBFT | Add sudoers file
+  ansible.builtin.copy:
+    dest: "/etc/sudoers.d/{{ chain_penumbra_user }}-cometbft-{{ chain_penumbra_chain_id }}"
+    content: |
+      {{ chain_penumbra_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl start cometbft-{{ chain_penumbra_chain_id }}.service
+      {{ chain_penumbra_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop cometbft-{{ chain_penumbra_chain_id }}.service
+      {{ chain_penumbra_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart cometbft-{{ chain_penumbra_chain_id }}.service
+      {{ chain_penumbra_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl status cometbft-{{ chain_penumbra_chain_id }}.service
+    mode: "0440"
+    validate: /usr/sbin/visudo -cf %s

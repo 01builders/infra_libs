@@ -1,0 +1,90 @@
+# use with https://github.com/casey/just
+#
+# Xion validator operations
+#
+
+# Set the shell to bash with error handling
+# set shell := ["bash", "-euo", "pipefail"]
+
+# Default recipe to show available commands
+default:
+    @just --list
+
+# Variables
+validator_service := "appd-{{ chain_penumbra_chain_id }}.service"
+consensus_service := "cometbft-{{ chain_penumbra_chain_id }}.service"
+log_lines := "100"
+
+### APPD
+
+# Start {{ chain_penumbra_appd_name }}-{{ chain_penumbra_chain_id }} systemd service
+appd-start:
+    @echo "Starting {{ chain_penumbra_appd_name }}-{{ chain_penumbra_chain_id }}..."
+    sudo /usr/bin/systemctl start {% raw %}{{ validator_service }}
+{% endraw %}
+    @sleep 2
+    @just appd-status
+
+# Stop {{ chain_penumbra_appd_name }}-{{ chain_penumbra_chain_id }} systemd service
+appd-stop:
+    @echo "Stopping {{ chain_penumbra_appd_name }}-{{ chain_penumbra_chain_id }}..."
+    sudo /usr/bin/systemctl stop {% raw %}{{ validator_service }}
+{% endraw %}
+    @sleep 2
+    @just appd-status
+
+# Restart {{ chain_penumbra_appd_name }}-{{ chain_penumbra_chain_id }} systemd service
+appd-restart:
+    @echo "Restarting {{ chain_penumbra_appd_name }}-{{ chain_penumbra_chain_id }}..."
+    sudo /usr/bin/systemctl restart {% raw %}{{ validator_service }}
+{% endraw %}
+    @sleep 2
+    @just appd-status
+
+# Check {{ chain_penumbra_appd_name }}-{{ chain_penumbra_chain_id }} systemd service status
+appd-status:
+    @echo "{{ chain_penumbra_appd_name }}-{{ chain_penumbra_chain_id }} status:"
+    sudo /usr/bin/systemctl status {% raw %}{{ validator_service }}
+{% endraw %}
+
+# Consult {{ chain_penumbra_appd_name }}-{{ chain_penumbra_chain_id }} systemd service logs
+appd-logs:
+    journalctl --unit={% raw %}{{ validator_service }} --follow
+{% endraw %}
+
+### CONSENSUS
+
+# Start cometbft-{{ chain_penumbra_chain_id }} systemd service
+consensus-start:
+    @echo "Starting cometbft-{{ chain_penumbra_chain_id }}..."
+    sudo /usr/bin/systemctl start {% raw %}{{ consensus_service }}
+{% endraw %}
+    @sleep 2
+    @just consensus-status
+
+# Stop cometbft-{{ chain_penumbra_chain_id }} systemd service
+consensus-stop:
+    @echo "Stopping cometbft-{{ chain_penumbra_chain_id }}..."
+    sudo /usr/bin/systemctl stop {% raw %}{{ consensus_service }}
+{% endraw %}
+    @sleep 2
+    @just consensus-status
+
+# Restart cometbft-{{ chain_penumbra_chain_id }} systemd service
+consensus-restart:
+    @echo "Restarting cometbft-{{ chain_penumbra_chain_id }}..."
+    sudo /usr/bin/systemctl restart {% raw %}{{ consensus_service }}
+{% endraw %}
+    @sleep 2
+    @just consensus-status
+
+# Check cometbft-{{ chain_penumbra_chain_id }} systemd service status
+consensus-status:
+    @echo "cometbft-{{ chain_penumbra_chain_id }} status:"
+    sudo /usr/bin/systemctl status {% raw %}{{ consensus_service }}
+{% endraw %}
+
+# Consult cometbft-{{ chain_penumbra_chain_id }} systemd service logs
+consensus-logs:
+    journalctl --unit={% raw %}{{ consensus_service }} --follow
+{% endraw %}

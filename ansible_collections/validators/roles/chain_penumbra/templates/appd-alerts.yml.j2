@@ -1,0 +1,24 @@
+groups:
+  - name: penumbra - {{ chain_penumbra_appd_name }} - {{ chain_id }}
+    rules:
+
+    - alert: InstanceDown
+      expr: up{job="prometheus.scrape.cosmos_validator_watcher_{{ chain_id | replace('-', '_') }}"} == 0
+      for: 3m
+      annotations:
+        title: "Instance prometheus.scrape.cosmos_validator_watcher_{{ chain_id | replace('-', '_') }} down"
+        description: "prometheus.scrape.cosmos_validator_watcher_{{ chain_id | replace('-', '_') }} has been down for more than 3 minutes"
+      labels:
+        severity: critical
+        service: validator
+        component: penumbra-pd
+
+    - alert: MissingBlocks
+      expr: increase(penumbra_stake_missed_blocks{identity_key="{{ chain_penumbra_validator_key }}"}[3m]) > 10
+      for: 3m
+      labels:
+        severity: critical
+        service: validator
+        component: penumbra-pd
+      annotations:
+        description: "Chain `{{ chain_id }}` validator  is missing `{{ $value }}` blocks!{% endraw %}"

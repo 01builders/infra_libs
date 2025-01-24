@@ -1,0 +1,92 @@
+---
+- name: Install required packages
+  ansible.builtin.apt:
+    name:
+      - git
+      - lz4
+    state: present
+
+- name: Create user
+  ansible.builtin.user:
+    name: "{{ chain_penumbra_user }}"
+    group: users
+    system: true
+    create_home: true
+    state: present
+
+- name: Configure shell
+  ansible.builtin.include_role:
+    name: binarybuilders.servers.configure_hosts
+    tasks_from: shell.yml
+  vars:
+    configure_hosts_users_username: "{{ chain_penumbra_user }}"
+
+- name: Add user to systemd-journal group
+  ansible.builtin.user:
+    name: "{{ chain_penumbra_user }}"
+    groups: systemd-journal
+    append: true
+
+- name: Appd
+  ansible.builtin.include_tasks:
+    file: appd-binary.yml
+
+- name: CometBFT | Binary
+  ansible.builtin.include_tasks:
+    file: cometbft-binary.yml
+
+- name: CometBFT | Configuration
+  ansible.builtin.include_tasks:
+    file: cometbft-configuration.yml
+
+- name: Pcli
+  ansible.builtin.include_tasks:
+    file: pcli-binary.yml
+
+- name: Pcli | Configuration
+  ansible.builtin.include_tasks:
+    file: pcli-configuration.yml
+
+- name: Validator-observability
+  ansible.builtin.include_role:
+    name: binarybuilders.validators.observability
+  vars:
+    observability_alerts: "{{ chain_penumbra_alerts }}"
+    observability_chain_id: "{{ chain_penumbra_chain_id }}"
+    observability_prometheus_sdk_prometheus_port: "{{ chain_penumbra_cometbft_prometheus_port }}"
+
+- name: Appd | Alloy | Edit configuration
+  when: chain_penumbra_appd_prometheus_port is defined
+  ansible.builtin.blockinfile:
+    path: "{{ chain_penumbra_alloy_config_path }}/config.alloy"
+    marker: /// {mark} ANSIBLE MANAGED BLOCK - {{ chain_penumbra_chain_id }} - penumbra {{ chain_penumbra_appd_name }}
+    append_newline: true
+    block: |
+      prometheus.scrape "penumbra_{{ chain_penumbra_appd_name }}_{{ chain_penumbra_chain_id | replace('-', '_') }}" {
+        clustering {
+          enabled = true
+        }
+        targets = [{
+          __address__ = "{{ ansible_hostname }}:{{ chain_penumbra_appd_prometheus_port }}",
+        }]
+        forward_to      = [prometheus.remote_write.victoriametrics.receiver]
+      }
+
+  notify: Restart alloy
+
+- name: Appd | Deploy global alerts
+  when: chain_penumbra_alerts is defined and chain_penumbra_alerts | bool
+  ansible.builtin.template:
+    src: appd-alerts.yml.yml.j2
+    dest: "{{ chain_penumbra_vmalert_config_path }}/penumbra-validator-{{ chain_penumbra_chain_id }}.yml"
+    mode: "0644"
+  delegate_to: observability
+  notify: Restart vmalert
+
+- name: Deploy justfile
+  ansible.builtin.template:
+    src: justfile.j2
+    dest: /home/{{ chain_penumbra_user }}/justfile
+    owner: "{{ chain_penumbra_user }}"
+    group: users
+    mode: "0644"

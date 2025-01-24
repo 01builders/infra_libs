@@ -1,0 +1,70 @@
+---
+- name: Appd | Check current version
+  ansible.builtin.shell: |
+    {{ chain_penumbra_appd_name }} --version
+  args:
+    executable: /bin/bash
+  register: check_appd
+  failed_when: false
+  changed_when: false
+
+- name: Appd | Set comparison string
+  ansible.builtin.set_fact:
+    appd_version_compare: "{{ chain_penumbra_appd_version | replace('v', '') }}"
+
+- name: Appd | Download
+  when: appd_version_compare not in check_appd.stdout
+  ansible.builtin.unarchive:
+    dest: /tmp
+    mode: "777"
+    remote_src: true
+    src: https://github.com/penumbra-zone/penumbra/releases/download/{{ chain_penumbra_appd_version }}/pd-x86_64-unknown-linux-gnu.tar.gz
+
+- name: Appd | Install
+  when: appd_version_compare not in check_appd.stdout
+  ansible.builtin.copy:
+    dest: /usr/local/bin/{{ chain_penumbra_appd_name }}
+    force: true
+    mode: "755"
+    remote_src: true
+    src: /tmp/pd-x86_64-unknown-linux-gnu/{{ chain_penumbra_appd_name }}
+
+- name: Appd | Create systemd service file
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/appd-{{ chain_penumbra_chain_id }}.service
+    content: |
+      [Unit]
+      Description=CometBFT {{ chain_penumbra_network }} (chain_id: {{ chain_penumbra_chain_id }}) (Validator)
+      After=network.target
+
+      [Service]
+      # Support binding to 443/TCP for HTTPS.
+      CapabilityBoundingSet=CAP_NET_BIND_SERVICE
+      AmbientCapabilities=CAP_NET_BIND_SERVICE
+      Type=simple
+      ExecStart=/usr/local/bin/pd start --cometbft-addr http://localhost:{{ chain_penumbra_appd_rpc_port }} --home {{ chain_penumbra_home_dir }}/network_data/node0/pd --metrics-bind 0.0.0.0:{{ chain_penumbra_appd_prometheus_port }}
+      User={{ chain_penumbra_user }}
+      Group=users
+      # Disable automatic restart, since governance votes can intentionally halt the chain.
+      Restart=no
+      RestartSec=3
+      TimeoutStartSec=900
+      LimitNOFILE=1400000
+
+      [Install]
+      WantedBy=multi-user.target
+    mode: "0644"
+  notify:
+    - Restart appd-{{ chain_penumbra_chain_id }}
+    - Restart cometbft-{{ chain_penumbra_chain_id }}
+
+- name: Appd | Add sudoers file
+  ansible.builtin.copy:
+    dest: "/etc/sudoers.d/{{ chain_penumbra_user }}-appd-{{ chain_penumbra_chain_id }}"
+    content: |
+      {{ chain_penumbra_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl start appd-{{ chain_penumbra_chain_id }}.service
+      {{ chain_penumbra_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop appd-{{ chain_penumbra_chain_id }}.service
+      {{ chain_penumbra_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart appd-{{ chain_penumbra_chain_id }}.service
+      {{ chain_penumbra_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl status appd-{{ chain_penumbra_chain_id }}.service
+    mode: "0440"
+    validate: /usr/sbin/visudo -cf %s

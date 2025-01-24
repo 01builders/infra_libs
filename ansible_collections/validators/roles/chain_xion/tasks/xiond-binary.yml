@@ -14,7 +14,7 @@
   ansible.builtin.shell:
     cmd: |
       source ~/.bash_profile
-      go install cosmossdk.io/tools/cosmovisor/cmd/cosmovisor@{{ chain_xion_cosmovisor_version }}
+      nice -n 19 go install cosmossdk.io/tools/cosmovisor/cmd/cosmovisor@{{ chain_xion_cosmovisor_version }}
   args:
     executable: /bin/bash
   become: true
@@ -67,7 +67,7 @@
     chdir: /home/{{ chain_xion_user }}/xiond
     cmd: |
       source ~/.bash_profile
-      make install
+      nice -n 19 make install
   args:
     executable: /bin/bash
   become: true

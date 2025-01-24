@@ -49,7 +49,7 @@
     chdir: /home/{{ chain_celestia_user }}/celestia-node
     cmd: |
       source ~/.bash_profile
-      make build
+      nice -n 19 make build
       make cel-key
   args:
     executable: /bin/bash
@@ -64,7 +64,7 @@
     chdir: /home/{{ chain_celestia_user }}/celestia-node
     cmd: |
       source ~/.bash_profile
-      make install
+      nice -n 19 make install
   args:
     executable: /bin/bash
   changed_when: true
