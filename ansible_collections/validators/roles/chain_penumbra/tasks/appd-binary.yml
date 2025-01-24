@@ -28,6 +28,9 @@
     mode: "755"
     remote_src: true
     src: /tmp/pd-x86_64-unknown-linux-gnu/{{ chain_penumbra_appd_name }}
+  notify:
+    - Restart appd-{{ chain_penumbra_chain_id }}
+    - Restart cometbft-{{ chain_penumbra_chain_id }}
 
 - name: Appd | Create systemd service file
   ansible.builtin.copy:

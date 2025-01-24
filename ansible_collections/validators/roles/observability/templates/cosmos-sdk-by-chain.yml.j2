@@ -18,7 +18,7 @@ groups:
       expr: tendermint_p2p_peers{chain_id="{{ observability_chain_id }}"} < 2 or cometbft_p2p_peers{chain_id="{{ observability_chain_id }}"} < 2
       for: 5m
       labels:
-        severity: warning
+        severity: major
         service: validator
         component: cosmos-sdk
       annotations:
@@ -29,7 +29,7 @@ groups:
       expr: increase(tendermint_consensus_latest_block_height{chain_id="{{ observability_chain_id }}"}[5m]) < 10 or increase(cometbft_consensus_latest_block_height{chain_id="{{ observability_chain_id }}"}[5m]) < 10
       for: 5m
       labels:
-        severity: warning
+        severity: major
         service: validator
         componnent: cosmos-sdk
       annotations:

@@ -12,55 +12,48 @@ groups:
       annotations:
         description: 'Filesystem "{{ $labels.mountpoint }}" on "{{ $labels.instance }}" is read-only.'
 
-    - alert: DiskFullIn1Week
+    - alert: LowFilesystemSpace
       expr: |
-        predict_linear(
-          (
-            node_filesystem_avail_bytes{
-              fstype!~"rootfs|nfs4|tmpfs",
-              instance=~".*validator.*"
-            }[24h]
-          ),
-          7 * 24 * 3600
-        ) < 0
-        and
-        rate(
-          node_filesystem_avail_bytes{
-            fstype!~"rootfs|nfs4|tmpfs",
-            instance=~".*validator.*"
-          }[24h]
-        ) < 0
-      for: 5m
-      labels:
-        severity: warning
-        component: node_exporter
-      annotations:
-        description: 'Filesystem "{{ $labels.mountpoint }}" on "{{ $labels.instance }}" will be out of diskspace within 1 week based on current growth rate.'
-
-    - alert: DiskFull12H
-      expr: |
-        predict_linear(
-          (
-            node_filesystem_avail_bytes{
-              fstype!~"rootfs|nfs4|tmpfs",
-              instance=~".*validator.*"
-            }[6h]
-          ),
-          12 * 3600
-        ) < 0
-        and
-        rate(
-          node_filesystem_avail_bytes{
-            fstype!~"rootfs|nfs4|tmpfs",
-            instance=~".*validator.*"
-          }[6h]
-        ) < 0
-      for: 5m
+        100 * (
+          node_filesystem_avail_bytes{fstype!~"rootfs|nfs4|tmpfs",instance=~".*validator.*"}
+          /
+          node_filesystem_size_bytes
+        ) < 15
+      for: 15m
       labels:
         severity: critical
         component: node_exporter
       annotations:
-        description: 'Filesystem "{{ $labels.mountpoint }}" on "{{ $labels.instance }}" will be out of diskspace within 12 hours based on current growth rate.'
+        description: |
+          Filesystem on {{ $labels.mountpoint }} has {{ printf "%.2f" $value }}% free space
+          (instance: {{ $labels.instance }})
+        summary: "Low disk space (below 15%)"
+
+    - alert: DiskFull14D
+      expr: |
+        predict_linear(node_filesystem_avail_bytes{fstype!~"rootfs|nfs4|tmpfs",instance=~".*validator.*"}[14d], 14 * 86400) < 0
+        and
+        (time() - node_filesystem_avail_bytes_created{instance=~".*validator.*"}) > 1209600  # 14-day minimum age
+      for: 24h
+      keep_firing_for: 12h
+      labels:
+        severity: warning
+        component: node_exporter
+      annotations:
+        description: 'Filesystem "{{ $labels.mountpoint }}" on "{{ $labels.instance }}" will be out of diskspace within 2 weeks based on current growth rate.'
+
+    - alert: DiskFull72H
+      expr: |
+        predict_linear(node_filesystem_avail_bytes{fstype!~"rootfs|nfs4|tmpfs",instance=~".*validator.*"}[7d],72*3600) < 0
+        and
+        (time() - node_filesystem_avail_bytes_created{fstype!~"rootfs|nfs4|tmpfs",instance=~".*validator.*"}[7d]) > 604800  # Ignore new filesystems
+      for: 2h
+      keep_firing_for: 1h
+      labels:
+        severity: critical
+        component: node_exporter
+      annotations:
+        description: 'Filesystem "{{ $labels.mountpoint }}" on "{{ $labels.instance }}" will be out of diskspace within 72 hours based on current growth rate.'
 
     - alert: NodeDiskFull
       expr: node_filesystem_avail_bytes/node_filesystem_size_bytes < 0.01
@@ -71,55 +64,43 @@ groups:
       annotations:
         description: 'Filesystem "{{ $labels.mountpoint }}" on "{{ $labels.instance }}" is out of diskspace (< 1% free).'
 
-    - alert: InodesFreeExhaustionIn1Week
+    - alert: InodeExhaustion72H
       expr: |
         predict_linear(
-          (
-            node_filesystem_files_free{
-              fstype!~"rootfs|nfs4|tmpfs",
-              instance=~".*validator.*"
-            }[24h]
-          ),
-          7 * 24 * 3600
-        ) < 0
-        and
-        rate(
           node_filesystem_files_free{
             fstype!~"rootfs|nfs4|tmpfs",
             instance=~".*validator.*"
-          }[24h]
-        ) < 0
-      for: 5m
-      labels:
-        severity: warning
-        component: node_exporter
-      annotations:
-        description: 'Filesystem "{{ $labels.mountpoint }}" on "{{ $labels.instance }}" will be out of inodes within 1 week based on current growth rate.'
-
-    - alert: InodesFreeExhaustionIn12Hours
-      expr: |
-        predict_linear(
-          (
-            node_filesystem_files_free{
-              fstype!~"rootfs|nfs4|tmpfs",
-              instance=~".*validator.*"
-            }[6h]
-          ),
-          12 * 3600
+          }[7d],
+          72 * 3600
         ) < 0
         and
-        rate(
-          node_filesystem_files_free{
-            fstype!~"rootfs|nfs4|tmpfs",
-            instance=~".*validator.*"
-          }[6h]
-        ) < 0
-      for: 5m
+        (time() - node_filesystem_files_created{instance=~".*validator.*"}) > 604800
+      for: 6h
+      keep_firing_for: 2h
       labels:
         severity: critical
         component: node_exporter
       annotations:
-        description: 'Filesystem "{{ $labels.mountpoint }}" on "{{ $labels.instance }}" will be out of inode numbers within 12 hours.'
+        description: 'Filesystem "{{ $labels.mountpoint }}" on "{{ $labels.instance }}" will be out of inodes within 2 weeks based on current growth rate.'
+
+    - alert: InodeExhaustion14D
+      expr: |
+        predict_linear(
+          node_filesystem_files_free{
+            fstype!~"rootfs|nfs4|tmpfs",
+            instance=~".*validator.*"
+          }[14d],
+          14 * 86400
+        ) < 0
+        and
+        (time() - node_filesystem_files_created{instance=~".*validator.*"}) > 1209600
+      for: 24h
+      keep_firing_for: 12h
+      labels:
+        severity: warning
+        component: node_exporter
+      annotations:
+        description: 'Filesystem "{{ $labels.mountpoint }}" on "{{ $labels.instance }}" will be out of inode numbers within 72 hours.'
 
     - alert: InodeFull
       expr: node_filesystem_files_free/node_filesystem_files{instance=~".*validator.*"} < 0.01

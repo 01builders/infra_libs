@@ -18,7 +18,7 @@ groups:
       expr: increase(cosmos_validator_watcher_solo_missed_blocks{chain_id="{{ observability_chain_id }}"}[3m]) > 10
       for: 3m
       labels:
-        severity: warning
+        severity: major
         service: validator
         component: cosmos-validator-watcher
       annotations:
