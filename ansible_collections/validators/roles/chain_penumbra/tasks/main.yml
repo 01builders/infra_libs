@@ -77,7 +77,7 @@
 - name: Appd | Deploy global alerts
   when: chain_penumbra_alerts is defined and chain_penumbra_alerts | bool
   ansible.builtin.template:
-    src: appd-alerts.yml.yml.j2
+    src: appd-alerts.yml.j2
     dest: "{{ chain_penumbra_vmalert_config_path }}/penumbra-validator-{{ chain_penumbra_chain_id }}.yml"
     mode: "0644"
   delegate_to: observability
