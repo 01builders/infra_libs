@@ -73,7 +73,6 @@
   become: true
   become_user: "{{ global_user }}"
   changed_when: true
-  notify: Restart appd-{{ global_chain_id }}
 
 - name: Binary | Initialize Cosmovisor
   when: not cosmovisor_init.stat.exists # noqa: no-handler
