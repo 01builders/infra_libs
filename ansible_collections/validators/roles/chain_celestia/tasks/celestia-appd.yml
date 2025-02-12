@@ -1,0 +1,191 @@
+---
+- name: Celestia-appd | Ensure celestia-appd repository is present
+  ansible.builtin.git:
+    repo: https://github.com/celestiaorg/celestia-app.git
+    dest: "/home/{{ chain_celestia_user }}/celestia-app"
+    version: "tags/{{ chain_celestia_appd_version }}"
+  become: true
+  become_user: "{{ chain_celestia_user }}"
+  register: repo_cloned
+
+- name: Celestia-appd | Build and install
+  when: repo_cloned.changed # noqa: no-handler
+  ansible.builtin.shell:
+    chdir: /home/{{ chain_celestia_user }}/celestia-app
+    cmd: |
+      source ~/.bash_profile
+      nice -n 19 make install
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ chain_celestia_user }}"
+  changed_when: true
+  notify: Restart appd-{{ chain_celestia_chain_id }}
+
+- name: Celestia-appd | Set vars
+  ansible.builtin.set_fact:
+    home_dir: /home/{{ chain_celestia_user }}/.celestia-app
+    service_name: appd-{{ chain_celestia_chain_id }}
+
+- name: Celestia-appd | Firewall Allow Incoming on public interface
+  community.general.ufw:
+    rule: allow
+    interface: "{{ public_interface }}"
+    direction: in
+    port: "{{ item.port }}"
+    proto: "{{ item.proto }}"
+  loop:
+    - { port: "{{ chain_celestia_appd_p2p_port }}", proto: tcp }
+
+- name: Celestia-appd | Check configuration file
+  ansible.builtin.stat:
+    path: "{{ home_dir }}/config/config.toml"
+  register: node_init
+
+- name: Celestia-appd | Initialize celestia-app
+  when: not node_init.stat.exists # noqa: no-handler
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      source ~/.bash_profile
+      celestia-appd config chain-id {{ chain_celestia_chain_id }}
+      celestia-appd init binary-builders --chain-id {{ chain_celestia_chain_id }}
+      celestia-appd download-genesis {{ chain_celestia_chain_id }}
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ chain_celestia_user }}"
+  changed_when: true
+
+- name: Celestia-appd | enable-bbr
+  when: not node_init.stat.exists # noqa: no-handler
+  ansible.builtin.shell:
+    chdir: /home/{{ chain_celestia_user }}/celestia-app
+    cmd: |
+      source ~/.bash_profile
+      make enable-bbr
+  args:
+    executable: /bin/bash
+  changed_when: true
+
+- name: Celestia-appd | Create systemd service file
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/appd-{{ chain_celestia_chain_id }}.service
+    content: |
+      [Unit]
+      Description={{ service_name | capitalize }}
+      After=network.target
+
+      [Service]
+      Type=simple
+      ExecStart=/home/{{ chain_celestia_user }}/go/bin/celestia-appd start
+      User={{ chain_celestia_user }}
+      Group=users
+      Restart=always
+      RestartSec=3
+      TimeoutStartSec=900
+      LimitNOFILE=1400000
+
+      [Install]
+      WantedBy=multi-user.target
+    mode: "0644"
+  notify: Restart appd-{{ chain_celestia_chain_id }}
+
+- name: Celestia-appd | Add sudoers file
+  ansible.builtin.copy:
+    dest: "/etc/sudoers.d/{{ chain_celestia_user }}-appd-{{ chain_celestia_chain_id }}"
+    content: |
+      {{ chain_celestia_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl start appd-{{ chain_celestia_chain_id }}.service
+      {{ chain_celestia_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop appd-{{ chain_celestia_chain_id }}.service
+      {{ chain_celestia_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart appd-{{ chain_celestia_chain_id }}.service
+      {{ chain_celestia_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl status appd-{{ chain_celestia_chain_id }}.service
+    mode: "0440"
+    validate: /usr/sbin/visudo -cf %s
+
+- name: Celestia-appd | app.toml
+  ansible.builtin.replace:
+    path: "{{ home_dir }}/config/app.toml"
+    regexp: "{{ item.regexp }}"
+    replace: "{{ item.line }}"
+  notify: Restart appd-{{ chain_celestia_chain_id }}
+  loop:
+    # Set gas price
+    - regexp: ^(minimum-gas-prices\s*=\s*).*$
+      line: \1"0.002utia"
+    # Tendermint block pruning
+    - regexp: ^(pruning\s*=\s*).*$
+      line: \1"custom"
+    - regexp: ^(pruning-keep-recent\s*=\s*).*$
+      line: \1"1000"
+    - regexp: ^(pruning-interval\s*=\s*).*$
+      line: \1"100"
+    - regexp: ^(min-retain-blocks\s*=\s*).*$
+      line: \1"150"
+    # Enable gRPC server
+    - regexp: (^\[grpc\]\n\n# Enable defines if the gRPC server should be enabled.\n)enable = .*$
+      line: \1enable = true
+    # Listen on 0.0.0.0 (gRPC)
+    - regexp: (^# Address defines the gRPC server address to bind to.\n)address = .*$
+      line: \1address = ":{{ chain_celestia_appd_grpc_port }}"
+  become: true
+  become_user: "{{ chain_celestia_user }}"
+
+- name: Celestia-appd | config.toml
+  ansible.builtin.replace:
+    path: "{{ home_dir }}/config/config.toml"
+    regexp: "{{ item.regexp }}"
+    replace: "{{ item.line }}"
+  notify: Restart appd-{{ chain_celestia_chain_id }}
+  loop:
+    # Listen on 0.0.0.0 (RPC)
+    - regexp: (^\[rpc\]\n\n# TCP or UNIX socket address for the RPC server to listen on\n)laddr = "tcp://[^"]*"
+      line: \1laddr = "tcp://0.0.0.0:{{ chain_celestia_appd_rpc_port }}"
+    # Listen on 0.0.0.0 (P2P)
+    - regexp: (^\[p2p\]\n\n# Address to listen for incoming connections\n)laddr = "tcp://[^"]*"
+      line: \1laddr = "tcp://0.0.0.0:{{ chain_celestia_appd_p2p_port }}"
+    # Enable prometheus
+    - regexp: ^(prometheus\s*=\s*).*$
+      line: \1true
+    # Listen on 0.0.0.0 (Prometheus)
+    - regexp: ^(prometheus_listen_addr\s*=\s*).*$
+      line: \1":{{ chain_celestia_appd_prometheus_port }}"
+    # Set timeout_commit to 11s
+    - regexp: ^(timeout_commit\s*=\s*).*$
+      line: \1"11s"
+    # Set indexer to null
+    - regexp: ^(indexer\s*=\s*).*$
+      line: \1"null"
+    # Discard abci responses (saves disk space)
+    - regexp: ^(discard_abci_responses\s*=\s*).*$
+      line: \1true
+    - regexp: ^(ttl-num-blocks\s*=\s*).*$
+      line: \1"12"
+  become: true
+  become_user: "{{ chain_celestia_user }}"
+
+- name: Celestia-appd | config.toml | Set persistent peers
+  when: chain_celestia_appd_peers is defined # noqa: no-handler
+  ansible.builtin.replace:
+    path: "{{ home_dir }}/config/config.toml"
+    regexp: ^(persistent_peers\s*=\s*).*$
+    replace: \1"{{ chain_celestia_appd_peers }}"
+  become: true
+  become_user: "{{ chain_celestia_user }}"
+  notify: Restart appd-{{ chain_celestia_chain_id }}
+
+- name: Celestia-appd | config.toml | Set seeds
+  when: chain_celestia_appd_seeds is defined # noqa: no-handler
+  ansible.builtin.replace:
+    path: "{{ home_dir }}/config/config.toml"
+    regexp: ^(seeds\s*=\s*).*$
+    replace: \1"{{ chain_celestia_appd_seeds }}"
+  become: true
+  become_user: "{{ chain_celestia_user }}"
+  notify: Restart appd-{{ chain_celestia_chain_id }}
+
+- name: Celestia-appd | Enable systemd service
+  ansible.builtin.systemd:
+    name: "appd-{{ chain_celestia_chain_id }}"
+    enabled: true
+    state: started
+    daemon_reload: true

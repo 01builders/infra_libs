@@ -1,0 +1,200 @@
+---
+- name: TMKMS | Set vars
+  ansible.builtin.set_fact:
+    service_name: tmkms-{{ chain_celestia_chain_id }}
+
+- name: TMKMS | Install required packages
+  ansible.builtin.apt:
+    name:
+      - libusb-1.0-0-dev
+    state: present
+
+- name: TMKMS | Create directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    recurse: true
+    mode: "0755"
+    owner: "{{ chain_celestia_user }}"
+    group: users
+  loop:
+    - "/home/{{ chain_celestia_user }}/.tmkms"
+    - "/home/{{ chain_celestia_user }}/.tmkms/{{ chain_celestia_chain_id }}"
+
+- name: TMKMS | Check if cargo is installed
+  ansible.builtin.stat:
+    path: /home/{{ chain_celestia_user }}/.cargo/bin/cargo
+  changed_when: false
+  register: cargo_exists
+  ignore_errors: true
+
+- name: TMKMS | .bash_profile
+  ansible.builtin.blockinfile:
+    path: /home/{{ chain_celestia_user }}/.bash_profile
+    marker: "# {mark} ANSIBLE MANAGED BLOCK - Cargo paths"
+    create: true
+    block: |
+      export PATH=$PATH:/home/{{ chain_celestia_user }}/.cargo/bin
+    mode: "0644"
+    owner: "{{ chain_celestia_user }}"
+    group: users
+
+- name: TMKMS | Fish config
+  ansible.builtin.copy:
+    dest: ~/.config/fish/conf.d/rust.fish
+    content: |
+      # Path Configuration
+      fish_add_path /home/{{ chain_celestia_user }}/.cargo/bin
+    mode: "644"
+  become: true
+  become_user: "{{ chain_celestia_user }}"
+
+- name: TMKMS | Download cargo installer
+  when: not cargo_exists.stat.exists
+  ansible.builtin.get_url:
+    url: https://sh.rustup.rs
+    dest: /tmp/{{ chain_celestia_user }}_sh.rustup.rs
+    mode: '0755'
+    force: true
+  become: true
+  become_user: "{{ chain_celestia_user }}"
+
+- name: TMKMS | Install rust/cargo
+  when: not cargo_exists.stat.exists
+  ansible.builtin.shell:
+    cmd: |
+      source ~/.bash_profile
+      /tmp/{{ chain_celestia_user }}_sh.rustup.rs -y
+      /home/{{ chain_celestia_user }}/.cargo/bin/rustup install {{ chain_celestia_rust_version }}
+  args:
+    executable: /bin/bash
+  changed_when: true
+  become: true
+  become_user: "{{ chain_celestia_user }}"
+
+- name: TMKMS | Ensure tmkms repository is present
+  ansible.builtin.git:
+    repo: https://github.com/iqlusioninc/tmkms.git
+    dest: "/home/{{ chain_celestia_user }}/tmkms"
+    version: "tags/{{ chain_celestia_tmkms_version }}"
+  become: true
+  become_user: "{{ chain_celestia_user }}"
+  register: repo_cloned
+
+- name: TMKMS | Build and install
+  when: repo_cloned.changed # noqa: no-handler
+  ansible.builtin.shell:
+    chdir: /home/{{ chain_celestia_user }}/tmkms
+    cmd: |
+      source ~/.bash_profile
+      export RUSTFLAGS=-Ctarget-feature=+aes,+ssse3
+      nice -n 19 cargo +{{ chain_celestia_rust_version }} build --release --features softsign
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ chain_celestia_user }}"
+  changed_when: true
+  notify: Restart {{ service_name }}
+
+- name: TMKMS | Copy binary to go/bin
+  when: repo_cloned.changed # noqa: no-handler
+  ansible.builtin.copy:
+    src: /home/{{ chain_celestia_user }}/tmkms/target/release/tmkms
+    dest: /home/{{ chain_celestia_user }}/go/bin/tmkms
+    mode: "755"
+    remote_src: true
+  become: true
+  become_user: "{{ chain_celestia_user }}"
+
+- name: TMKMS | Create systemd service file
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/{{ service_name }}.service
+    content: |
+      [Unit]
+      Description={{ service_name | capitalize }}
+      After=network.target
+
+      [Service]
+      Type=simple
+      ExecStart=/home/{{ chain_celestia_user }}/go/bin/tmkms start -c /home/{{ chain_celestia_user }}/.tmkms/{{ chain_celestia_chain_id }}/tmkms.toml
+      User={{ chain_celestia_user }}
+      Group=users
+      Restart=always
+      RestartSec=10
+      TimeoutStartSec=900
+      LimitNOFILE=1024
+
+      [Install]
+      WantedBy=multi-user.target
+    mode: "0644"
+  notify: Restart {{ service_name }}
+
+- name: TMKMS | Enable systemd service
+  ansible.builtin.systemd:
+    name: "tmkms-{{ chain_celestia_chain_id }}"
+    enabled: true
+    daemon_reload: true
+
+- name: TMKMS | Add sudoers file
+  ansible.builtin.copy:
+    dest: "/etc/sudoers.d/{{ chain_celestia_user }}-{{ service_name }}"
+    content: |
+      {{ chain_celestia_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl start {{ service_name }}.service
+      {{ chain_celestia_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop {{ service_name }}.service
+      {{ chain_celestia_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart {{ service_name }}.service
+      {{ chain_celestia_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl status {{ service_name }}.service
+    mode: "0440"
+    validate: /usr/sbin/visudo -cf %s
+
+- name: TMKMS | Check configuration file
+  ansible.builtin.stat:
+    path: "/home/{{ chain_celestia_user }}/.tmkms/{{ chain_celestia_chain_id }}/tmkms.toml"
+  register: node_init
+
+- name: TMKMS | Initialize celestia-app
+  when: not node_init.stat.exists # noqa: no-handler
+  ansible.builtin.shell:
+    cmd: |
+      set -o pipefail
+      source ~/.bash_profile
+      tmkms init /home/{{ chain_celestia_user }}/.tmkms/{{ chain_celestia_chain_id }}
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ chain_celestia_user }}"
+  changed_when: true
+
+- name: TMKMS | Configuration
+  ansible.builtin.copy:
+    dest: /home/{{ chain_celestia_user }}/.tmkms/{{ chain_celestia_chain_id }}/tmkms.toml
+    content: |
+      ## Chain Configuration
+      [[chain]]
+      id = "{{ chain_celestia_chain_id }}"
+      key_format = { type = "bech32", account_key_prefix = "{{ chain_celestia_chain_id }}pub", consensus_key_prefix = "{{ chain_celestia_chain_id }}valconspub" }
+      state_file = "/home/{{ chain_celestia_user }}/.tmkms/{{ chain_celestia_chain_id }}/state/{{ chain_celestia_chain_id }}-consensus.json"
+
+      ## Signing Provider Configuration
+      [[providers.softsign]]
+      chain_ids = ["{{ chain_celestia_chain_id }}"]
+      key_type = "consensus"
+      path = "/home/{{ chain_celestia_user }}/.tmkms/{{ chain_celestia_chain_id }}/secrets/{{ chain_celestia_chain_id }}-consensus.key"
+
+      ## Validator Configuration
+      [[validator]]
+      chain_id = "{{ chain_celestia_chain_id }}"
+      addr = "tcp://{{ chain_celestia_tmkms_validator_addr }}"
+      secret_key = "/home/{{ chain_celestia_user }}/.tmkms/{{ chain_celestia_chain_id }}/secrets/kms-identity.key"
+      protocol_version = "v0.34"
+      reconnect = true
+    mode: "0644"
+  notify: Restart {{ service_name }}
+  become: true
+  become_user: "{{ chain_celestia_user }}"
+  changed_when: true
+
+- name: TMKMS | Enable systemd service
+  ansible.builtin.systemd:
+    name: "{{ service_name }}"
+    enabled: true
+    daemon_reload: true

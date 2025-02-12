@@ -1,0 +1,90 @@
+---
+- name: Jester | Ensure repository is present
+  ansible.builtin.git:
+    repo: https://github.com/noble-assets/jester.git
+    dest: "/home/{{ global_user }}/jester_repo"
+    version: "tags/{{ chain_noble_jester_version }}"
+  become: true
+  become_user: "{{ global_user }}"
+  register: repo_jester_cloned
+
+- name: Jester | Build and install
+  when: repo_jester_cloned.changed # noqa: no-handler
+  ansible.builtin.shell:
+    chdir: /home/{{ global_user }}/jester_repo
+    cmd: |
+      source ~/.bash_profile
+      nice -n 19 make install
+  args:
+    executable: /bin/bash
+  become: true
+  become_user: "{{ global_user }}"
+  changed_when: true
+  notify: Restart jester-{{ global_chain_id }}
+
+- name: Jester | Create systemd service file
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/jester-{{ global_chain_id }}.service
+    content: |
+      [Unit]
+      Description=Jester {{ global_network }} (chain_id: {{ global_chain_id }})
+      After=network.target
+
+      [Service]
+      Type=simple
+      ExecStart=/home/{{ global_user }}/go/bin/jesterd start --metrics.address 0.0.0.0:{{ chain_noble_jester_port_prometheus_port }}
+      User={{ global_user }}
+      Group=users
+      Restart=always
+      RestartSec=3
+      TimeoutStartSec=900
+      LimitNOFILE=1024
+
+      [Install]
+      WantedBy=multi-user.target
+    mode: "0644"
+  notify: Restart jester-{{ global_chain_id }}
+
+- name: Jester | Enable systemd service
+  ansible.builtin.systemd:
+    name: "jester-{{ global_chain_id }}"
+    enabled: true
+    daemon_reload: true
+
+- name: Jester | Add sudoers file
+  ansible.builtin.copy:
+    dest: "/etc/sudoers.d/{{ global_user }}-jester-{{ global_chain_id }}"
+    content: |
+      {{ global_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl start jester-{{ global_chain_id }}.service
+      {{ global_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop jester-{{ global_chain_id }}.service
+      {{ global_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart jester-{{ global_chain_id }}.service
+      {{ global_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl status jester-{{ global_chain_id }}.service
+    mode: "0440"
+    validate: /usr/sbin/visudo -cf %s
+
+- name: Jester | Alloy | Edit configuration
+  ansible.builtin.blockinfile:
+    path: "{{ chain_neutron_alloy_config_path }}/config.alloy"
+    marker: /// {mark} ANSIBLE MANAGED BLOCK - {{ global_chain_id }} - jester
+    append_newline: true
+    block: |
+      prometheus.scrape "jester_{{ global_chain_id | replace('-', '_') }}" {
+        clustering {
+          enabled = true
+        }
+        targets = [{
+          __address__ = "{{ ansible_hostname }}:{{ chain_noble_jester_port_prometheus_port }}",
+        }]
+        forward_to      = [prometheus.remote_write.victoriametrics.receiver]
+      }
+
+  notify: Restart alloy
+
+# - name: Jester | Deploy slinky alerts
+#   when: chain_neutron_alerts is defined and chain_neutron_alerts | bool
+#   ansible.builtin.template:
+#     src: slinky-alerts.yml.j2
+#     dest: "{{ chain_neutron_vmalert_config_path }}/neutron-slinky-{{ chain_neutron_chain_id }}.yml"
+#     mode: "0644"
+#   delegate_to: observability
+#   notify: Restart vmalert

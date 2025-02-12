@@ -43,52 +43,39 @@
     configure_hosts_users_username: "{{ chain_celestia_user }}"
 
 - name: Install Go
+  when: (chain_celestia_bridge is defined and chain_celestia_bridge | bool) or (chain_celestia_appd is defined and chain_celestia_appd | bool)
   ansible.builtin.include_role:
     name: install_go
 
 - name: Celestia-appd
-  ansible.builtin.include_tasks: celestia-app.yml
+  when: chain_celestia_appd is defined and chain_celestia_appd | bool
+  ansible.builtin.include_tasks: celestia-appd.yml
 
-- name: Bridge | Celestia-app
-  ansible.builtin.include_tasks: bridge-celestia-app.yml
-  when: chain_celestia_bridge is defined and chain_celestia_bridge | bool
-
-- name: Bridge | Celestia-node
+- name: Celestia-node
   ansible.builtin.include_tasks: celestia-node.yml
   when: chain_celestia_bridge is defined and chain_celestia_bridge | bool
 
-- name: Bridge | Celestia-da-otel-collector
+- name: Celestia-da-otel-collector
   ansible.builtin.include_tasks: celestia-da-otel-collector.yml
   when: chain_celestia_bridge is defined and chain_celestia_bridge | bool
 
-- name: Bridge | Validator-observability
-  when: chain_celestia_bridge is defined and chain_celestia_bridge | bool
+- name: Validator-observability
+  when: chain_celestia_appd is defined and chain_celestia_appd | bool
   ansible.builtin.include_role:
     name: binarybuilders.validators.observability
   vars:
-    observability_unique_id: bridge
     observability_alerts: "{{ chain_celestia_alerts }}"
     observability_chain_id: "{{ chain_celestia_chain_id }}"
-    observability_prometheus_sdk_prometheus_port: "{{ chain_celestia_bridge_app_prometheus_port }}"
-
-- name: Validator | Celestia-app
-  ansible.builtin.include_tasks: validator-celestia-app.yml
-  when: chain_celestia_validator is defined and chain_celestia_validator | bool
-
-- name: Validator | Cosmos-validator-watcher
-  ansible.builtin.include_tasks: cosmos-validator-watcher.yml
-  when: chain_celestia_validator is defined and chain_celestia_validator | bool
-
-- name: Validator | Validator-observability
-  when: chain_celestia_validator is defined and chain_celestia_validator | bool
-  ansible.builtin.include_role:
-    name: binarybuilders.validators.observability
-  vars:
-    observability_unique_id: validator
-    observability_alerts: "{{ chain_celestia_alerts }}"
-    observability_chain_id: "{{ chain_celestia_chain_id }}"
-    observability_prometheus_sdk_prometheus_port: "{{ chain_celestia_validator_app_prometheus_port }}"
+    observability_prometheus_sdk_prometheus_port: "{{ chain_celestia_appd_prometheus_port }}"
     observability_prometheus_watcher_prometheus_port: "{{ chain_celestia_validator_watcher_prometheus_port }}"
+
+- name: Cosmos-validator-watcher
+  when: chain_celestia_appd is defined and chain_celestia_appd | bool
+  ansible.builtin.include_tasks: cosmos-validator-watcher.yml
+
+- name: TMKMS
+  ansible.builtin.include_tasks: tmkms.yml
+  when: chain_celestia_tmkms is defined and chain_celestia_tmkms | bool
 
 - name: Deploy justfile
   ansible.builtin.template:

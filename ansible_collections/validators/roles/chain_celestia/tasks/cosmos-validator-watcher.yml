@@ -7,8 +7,8 @@
   when: chain_celestia_network == "mocha"
   ansible.builtin.set_fact:
     quadlet_command:
-      - --http-addr :{{ chain_celestia_validator_watcher_prometheus_port }}
-      - --node http://localhost:{{ chain_celestia_validator_app_rpc_port }}
+      - --http-addr :{{ chain_celestia_cosmos_validator_watcher_prometheus_port }}
+      - --node http://localhost:{{ chain_celestia_appd_rpc_port }}
       - --node https://rpc-mocha-full.avril14th.org:443
       - --node https://celestia-testnet-rpc.itrocket.net:443
       - --validator 6B9DDE2E07592A5BDDF4F93FEA6837253057B642:{{ chain_celestia_chain_id }}
@@ -17,15 +17,15 @@
   when: chain_celestia_network == "mainnet"
   ansible.builtin.set_fact:
     quadlet_command:
-      - --http-addr :{{ chain_celestia_validator_watcher_prometheus_port }}
-      - --node http://localhost:{{ chain_celestia_validator_app_rpc_port }}
+      - --http-addr :{{ chain_celestia_cosmos_validator_watcher_prometheus_port }}
+      - --node http://localhost:{{ chain_celestia_appd_rpc_port }}
       - --node https://celestia-rpc.publicnode.com:443
       - --validator CBFB913FC967932260667909727676760FA8FA24:{{ chain_celestia_chain_id }}
 
 - name: Cosmos-validator-watcher | Quadlet container file
   containers.podman.podman_container:
     name: "{{ service_name }}"
-    image: "{{ chain_celestia_validator_cosmos_validator_watcher_image }}"
+    image: "{{ chain_celestia_cosmos_validator_watcher_image }}"
     state: quadlet
     command: "{{ quadlet_command }}"
     network: host

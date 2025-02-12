@@ -1,7 +1,7 @@
 ---
 - name: Celestia-node | Set vars
   ansible.builtin.set_fact:
-    service_name: bridge-celestia-node-{{ chain_celestia_chain_id }}
+    service_name: celestia-bridge-{{ chain_celestia_chain_id }}
 
 - name: Celestia-node | Set testnet vars
   when: chain_celestia_network == "mocha"
@@ -10,9 +10,8 @@
     flags:
       - --archival
       - --p2p.network {{ chain_celestia_network }}
-      - --core.ip 127.0.0.1
-      - --core.rpc.port {{ chain_celestia_bridge_app_rpc_port }}
-      - --core.grpc.port {{ chain_celestia_bridge_app_grpc_port }}
+      # - --core.ip 127.0.0.1
+      # - --core.port {{ chain_celestia_appd_grpc_port }}
       - --metrics
       - --metrics.tls=false
       - --metrics.endpoint otel.celestia-mocha.com
@@ -24,12 +23,9 @@
     flags:
       - --archival
       - --p2p.network {{ chain_celestia_network }}
-      - --core.ip 127.0.0.1
-      - --core.rpc.port {{ chain_celestia_bridge_app_rpc_port }}
-      - --core.grpc.port {{ chain_celestia_bridge_app_grpc_port }}
+      - --core.ip celestia-archive-grpc.fds78h2uifba506s982hbfa2.g.eu.link.numia.xyz
       # - --core.ip rpc.celestia.pops.one
-      # - --core.rpc.port 26657
-      # - --core.grpc.port 9090
+      - --core.port 9090
       - --metrics
       - --metrics.tls=false
       - --metrics.endpoint 127.0.0.1:{{ chain_celestia_bridge_otlp_http_port }}
@@ -50,7 +46,7 @@
     cmd: |
       source ~/.bash_profile
       nice -n 19 make build
-      make cel-key
+      nice -n 19 make cel-key
   args:
     executable: /bin/bash
   become: true
@@ -96,6 +92,17 @@
   loop:
     - { port: "2121", proto: tcp } # P2P
     - { port: "2121", proto: udp } # P2P
+
+- name: Celestia-node | Create symlink for raid volume
+  when: chain_celestia_raid is defined and chain_celestia_raid | bool
+  ansible.builtin.file:
+    src: /mnt/raid-nvme/bridge_celestia_node_home_dir
+    dest: /home/{{ chain_celestia_user }}/{{ chain_celestia_bridge_conf_dir }}
+    state: link
+    mode: "0700"
+    owner: "{{ chain_celestia_user }}"
+    group: users
+    force: true
 
 - name: Celestia-node | Check configuration file
   ansible.builtin.stat:
