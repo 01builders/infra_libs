@@ -33,8 +33,8 @@
 
         [Unit]
         Description=uptime-kuma
-        After=network-online.target
-        Wants=network-online.target
+        After=network-online.target tailscaled.service
+        Wants=network-online.target tailscaled.service
 
         [Service]
         Restart=always
