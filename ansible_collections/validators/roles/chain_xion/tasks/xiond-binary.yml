@@ -73,7 +73,6 @@
   become: true
   become_user: "{{ chain_xion_user }}"
   changed_when: true
-  notify: Restart xiond-{{ chain_xion_network }}
 
 - name: Xiond | Initialize Cosmovisor
   when: not cosmovisor_init.stat.exists # noqa: no-handler
