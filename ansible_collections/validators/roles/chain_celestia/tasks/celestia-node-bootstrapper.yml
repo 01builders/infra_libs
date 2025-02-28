@@ -1,0 +1,117 @@
+---
+- name: Celestia-node-bootstrapper | Set vars
+  ansible.builtin.set_fact:
+    service_name: celestia-bootstrapper-{{ chain_celestia_chain_id }}
+
+- name: Celestia-node-bootstrapper | Set testnet vars
+  when: chain_celestia_network == "mocha"
+  ansible.builtin.set_fact:
+    chain_celestia_bootstrapper_conf_dir: .celestia-full-{{ chain_celestia_chain_id }}
+    flags:
+      - --p2p.network {{ chain_celestia_network }}
+      - --core.ip 127.0.0.1
+      # - --core.port {{ chain_celestia_appd_grpc_port }}
+      - --metrics
+      - --metrics.tls=false
+      - --metrics.endpoint 127.0.0.1:{{ chain_celestia_bootstrapper_otlp_prometheus_port }}
+
+- name: Celestia-node-bootstrapper | Set mainnet vars
+  when: chain_celestia_network == "mainnet"
+  ansible.builtin.set_fact:
+    chain_celestia_bootstrapper_conf_dir: .celestia-full
+    flags:
+      - --experimental-pruning
+      - --p2p.network {{ chain_celestia_network }}
+      # - --core.ip celestia-archive-grpc.fds78h2uifba506s982hbfa2.g.eu.link.numia.xyz
+      # - --core.ip rpc.celestia.pops.one
+      - --core.ip 127.0.0.1
+      - --core.port 9090
+      # - --metrics
+      # - --metrics.tls=false
+      # - --metrics.endpoint 127.0.0.1:{{ chain_celestia_bridge_otlp_http_port }}
+
+- name: Celestia-node-bootstrapper | Firewall Allow Incoming on public interface
+  community.general.ufw:
+    rule: allow
+    interface: "{{ public_interface }}"
+    direction: in
+    port: "{{ item.port }}"
+    proto: "{{ item.proto }}"
+  loop:
+    - { port: "32121", proto: tcp } # P2P
+    - { port: "32121", proto: udp } # P2P
+
+- name: Celestia-node-bootstrapper | Check configuration file
+  ansible.builtin.stat:
+    path: /home/{{ chain_celestia_user }}/{{ chain_celestia_bootstrapper_conf_dir }}/.lock
+  register: node_init
+
+- name: Celestia-node-bootstrapper | Initialize Celestia Bootstrapper node
+  when: not node_init.stat.exists # noqa: no-handler
+  ansible.builtin.pause:
+    prompt: You must manually init the bootstrapper node. Please log into the server and execute `celestia full init --p2p.network {{ chain_celestia_chain_id }}`, then backup the mnemonic.
+
+- name: Celestia-node-bootstrapper | config.toml
+  ansible.builtin.replace:
+    path: "/home/{{ chain_celestia_user }}/{{ chain_celestia_bootstrapper_conf_dir }}/config.toml"
+    regexp: "{{ item.regexp }}"
+    replace: "{{ item.line }}"
+  notify: Restart {{ service_name }}
+  loop:
+    - regexp: /2121
+      line: /32121
+    - regexp: 26658
+      line: 36658
+  become: true
+  become_user: "{{ chain_celestia_user }}"
+
+- name: Celestia-node-bootstrapper-certbot | Create configuration directory
+  ansible.builtin.file:
+    path: "/home/{{ chain_celestia_user }}/celestia-bootstrapper-certs"
+    state: directory
+    mode: "0700"
+  become: true
+  become_user: "{{ chain_celestia_user }}"
+
+- name: Celestia-node-bootstrapper | Create systemd service file
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/{{ service_name }}.service
+    content: |
+      [Unit]
+      Description=Celestia-bootstrapper-{{ chain_celestia_chain_id }} (Data Availability)
+      After=network.target
+
+      [Service]
+      Type=simple
+      ExecStart=/home/{{ chain_celestia_user }}/go/bin/celestia full start {{ flags | join(' ') }}
+      User={{ chain_celestia_user }}
+      Group=users
+      Restart=always
+      RestartSec=3
+      TimeoutStartSec=900
+      LimitNOFILE=1400000
+      Environment=CELESTIA_BOOTSTRAPPER=true
+      Environment=CELESTIA_TLS_PATH=/home/{{ chain_celestia_user }}/celestia-bootstrapper-certs
+
+      [Install]
+      WantedBy=multi-user.target
+    mode: "0644"
+  notify: Restart {{ service_name }}
+
+- name: Celestia-node-bootstrapper | Add sudoers file
+  ansible.builtin.copy:
+    dest: "/etc/sudoers.d/{{ chain_celestia_user }}-bootstrapper-{{ chain_celestia_chain_id }}"
+    content: |
+      {{ chain_celestia_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl start {{ service_name }}.service
+      {{ chain_celestia_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop {{ service_name }}.service
+      {{ chain_celestia_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart {{ service_name }}.service
+      {{ chain_celestia_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl status {{ service_name }}.service
+    mode: "0440"
+    validate: /usr/sbin/visudo -cf %s
+
+- name: Celestia-node-bootstrapper | Enable systemd service
+  ansible.builtin.systemd:
+    name: "{{ service_name }}"
+    enabled: true
+    state: started
+    daemon_reload: true

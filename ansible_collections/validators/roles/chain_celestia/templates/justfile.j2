@@ -17,6 +17,9 @@ appd_service := "appd-{{ chain_celestia_chain_id }}"
 {% if chain_celestia_bridge is defined and chain_celestia_bridge | bool %}
 bridge_node_service := "celestia-bridge-{{ chain_celestia_chain_id }}"
 {% endif %}
+{% if chain_celestia_bootstrapper is defined and chain_celestia_bootstrapper | bool %}
+bootstrapper_node_service := "celestia-bootstrapper-{{ chain_celestia_chain_id }}"
+{% endif %}
 {% if chain_celestia_tmkms is defined and chain_celestia_tmkms | bool %}
 tmkms_service := "tmkms-{{ chain_celestia_chain_id }}"
 {% endif %}
@@ -92,6 +95,42 @@ bridge-status:
 # Consult bridge systemd service logs
 bridge-logs:
     journalctl --unit={% raw %}{{ bridge_node_service }} --follow
+{% endraw %}
+{% endif %}
+
+{% if chain_celestia_bootstrapper is defined and chain_celestia_bootstrapper | bool %}
+# Start bootstrapper systemd service
+bootstrapper-start:
+    @echo "Starting {{ chain_celestia_network }}..."
+    sudo /usr/bin/systemctl start {% raw %}{{ bootstrapper_node_service }}.service
+{% endraw %}
+    @sleep 2
+    @just bootstrapper-status
+
+# Stop bootstrapper systemd service
+bootstrapper-stop:
+    @echo "Stopping {% raw %}{{ bootstrapper_node_service }}{% endraw %}..."
+    sudo /usr/bin/systemctl stop {% raw %}{{ bootstrapper_node_service }}.service
+{% endraw %}
+    @sleep 2
+    @just bootstrapper-status
+# Restart bootstrapper systemd service
+bootstrapper-restart:
+    @echo "Restarting {% raw %}{{ bootstrapper_node_service }}{% endraw %}..."
+    sudo /usr/bin/systemctl restart {% raw %}{{ bootstrapper_node_service }}.service
+{% endraw %}
+    @sleep 2
+    @just bootstrapper-status
+
+# Check bootstrapper systemd service status
+bootstrapper-status:
+    @echo "{% raw %}{{ bootstrapper_node_service }}{% endraw %} status:"
+    sudo /usr/bin/systemctl status {% raw %}{{ bootstrapper_node_service }}.service
+{% endraw %}
+
+# Consult bootstrapper systemd service logs
+bootstrapper-logs:
+    journalctl --unit={% raw %}{{ bootstrapper_node_service }} --follow
 {% endraw %}
 {% endif %}
 

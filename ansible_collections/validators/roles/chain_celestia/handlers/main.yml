@@ -9,7 +9,17 @@
     name: appd-{{ chain_celestia_chain_id }}
     state: restarted
 
+- name: Restart celestia-bootstrapper-{{ chain_celestia_chain_id }}
+  ansible.builtin.systemd_service:
+    name: celestia-bootstrapper-{{ chain_celestia_chain_id }}
+    state: restarted
+
 - name: Restart celestia-da-otel-collector-{{ chain_celestia_chain_id }}
+  ansible.builtin.systemd_service:
+    name: celestia-da-otel-collector-{{ chain_celestia_chain_id }}
+    state: restarted
+
+- name: Restart celestia-bootstrapper-otel-collector-{{ chain_celestia_chain_id }}
   ansible.builtin.systemd_service:
     name: celestia-da-otel-collector-{{ chain_celestia_chain_id }}
     state: restarted
@@ -36,3 +46,9 @@
     daemon_reload: true
     state: restarted
   delegate_to: observability
+
+- name: Restart nginx
+  ansible.builtin.systemd_service:
+    name: nginx
+    daemon_reload: true
+    state: restarted

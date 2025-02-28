@@ -1,48 +1,48 @@
 groups:
-  - name: celestia-bridge-{{ chain_celestia_chain_id }}
+  - name: celestia-bridge-{{ chain_celestia_chain_id | replace('-', '_') }}
     rules:
     - alert: TooFewPeers
-      expr: celestia_full_discovery_amount_of_peers{service_namespace="{{ chain_celestia_chain_id }}"} < 2
+      expr: celestia_full_discovery_amount_of_peers{service_namespace="{{ chain_celestia_chain_id | replace('-', '_') }}"} < 2
       for: 15m
       labels:
         severity: major
       annotations:
-        description: 'Celestia-bridge chain_id: `{{ chain_celestia_chain_id }}` / The number of connected P2P peers has been below the defined threshold in the last 5 minutes.'
+        description: 'Celestia-bridge chain_id: `{{ chain_celestia_chain_id | replace('-', '_') }}` / The number of connected P2P peers has been below the defined threshold in the last 5 minutes.'
 
     - alert: NoArchivalPeers
-      expr: celestia_archival_discovery_amount_of_peers{service_namespace="{{ chain_celestia_chain_id }}"} < 2
+      expr: celestia_archival_discovery_amount_of_peers{service_namespace="{{ chain_celestia_chain_id | replace('-', '_') }}"} < 2
       for: 15m
       labels:
         severity: major
       annotations:
-        description: 'Celestia-bridge chain_id: `{{ chain_celestia_chain_id }}` / The node is not connected to any archival peers'
+        description: 'Celestia-bridge chain_id: `{{ chain_celestia_chain_id | replace('-', '_') }}` / The node is not connected to any archival peers'
 
     - alert: StalledBlocks
-      expr: increase(celestia_hdr_sync_subjective_head_gauge{service_namespace="{{ chain_celestia_chain_id }}"}[15m]) == 0
+      expr: increase(celestia_hdr_sync_subjective_head_gauge{service_namespace="{{ chain_celestia_chain_id | replace('-', '_') }}"}[15m]) == 0
       labels:
         severity: critical
       annotations:
-        description: 'Celestia-bridge chain_id: `{{ chain_celestia_chain_id }}` / Block production stalled. The node has not produced any blocks in the last 5 minutes.'
+        description: 'Celestia-bridge chain_id: `{{ chain_celestia_chain_id | replace('-', '_') }}` / Block production stalled. The node has not produced any blocks in the last 5 minutes.'
 
     - alert: NoReceiverMetricPoints
       expr: increase(otelcol_receiver_accepted_metric_points[15m]) == 0
       labels:
         severity: critical
       annotations:
-        description: 'Celestia-bridge chain_id: `{{ chain_celestia_chain_id }}` / The OTEL Collector has stopped receiving metric points. Is the bridge node online?'
+        description: 'Celestia-bridge chain_id: `{{ chain_celestia_chain_id | replace('-', '_') }}` / The OTEL Collector has stopped receiving metric points. Is the bridge node online?'
 
     - alert: InstanceDown
-      expr: up{job="prometheus.scrape.celestia_da_otel_collector_da_{{ chain_celestia_chain_id }}"} == 0
+      expr: up{job="prometheus.scrape.celestia_da_otel_collector_da_{{ chain_celestia_chain_id | replace('-', '_') }}"} == 0
       for: 15m
       labels:
         severity: critical
       annotations:
-        description: "Celestia-bridge chain_id: `{{ chain_celestia_chain_id }}` / Instance has been down for more than 1 minute."
+        description: "Celestia-bridge chain_id: `{{ chain_celestia_chain_id | replace('-', '_') }}` / Instance has been down for more than 1 minute."
 
     - alert: OutOfSync
-      expr: sum by (instance)(celestia_hdr_sync_subjective_head_gauge{service_namespace="{{ chain_celestia_chain_id }}"}) - sum by (instance)(celestia_hdr_store_head_height_gauge{service_namespace="{{ chain_celestia_chain_id }}"}) > 2
+      expr: sum by (instance)(celestia_hdr_sync_subjective_head_gauge{service_namespace="{{ chain_celestia_chain_id | replace('-', '_') }}"}) - sum by (instance)(celestia_hdr_store_head_height_gauge{service_namespace="{{ chain_celestia_chain_id | replace('-', '_') }}"}) > 2
       for: 15m
       labels:
         severity: critical
       annotations:
-        description: "Celestia-bridge chain_id: `{{ chain_celestia_chain_id }}` / Node is out of sync for more than 15 minutes."
+        description: "Celestia-bridge chain_id: `{{ chain_celestia_chain_id | replace('-', '_') }}` / Node is out of sync for more than 15 minutes."

@@ -53,10 +53,26 @@
 
 - name: Celestia-node
   ansible.builtin.include_tasks: celestia-node.yml
+  when: (chain_celestia_bridge is defined and chain_celestia_bridge | bool) or (chain_celestia_bootstrapper is defined and chain_celestia_bootstrapper | bool)
+
+- name: Celestia-bridge
+  ansible.builtin.include_tasks: celestia-node-bridge.yml
   when: chain_celestia_bridge is defined and chain_celestia_bridge | bool
 
-- name: Celestia-da-otel-collector
-  ansible.builtin.include_tasks: celestia-da-otel-collector.yml
+- name: Celestia-da-otel-collector - bridge
+  ansible.builtin.include_tasks: celestia-node-bridge-da-otel-collector.yml
+  when: chain_celestia_bridge is defined and chain_celestia_bridge | bool
+
+- name: Celestia-bootstrapper
+  ansible.builtin.include_tasks: celestia-node-bootstrapper.yml
+  when: chain_celestia_bootstrapper is defined and chain_celestia_bootstrapper | bool
+
+- name: Celestia-bootstrapper-certbot
+  ansible.builtin.include_tasks: celestia-node-bootstrapper-certbot.yml
+  when: chain_celestia_bootstrapper is defined and chain_celestia_bootstrapper | bool
+
+- name: Celestia-da-otel-collector - bootstrapper
+  ansible.builtin.include_tasks: celestia-node-bootstrapper-otel-collector.yml
   when: chain_celestia_bridge is defined and chain_celestia_bridge | bool
 
 - name: Validator-observability

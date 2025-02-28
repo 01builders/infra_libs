@@ -7,7 +7,7 @@ groups:
       for: 3m
       annotations:
         title: "Instance cosmos_sdk_{{ marker_id | replace('-', '_') }} down"
-        description: "Job on {% raw %}{{ $labels.instance }}{% endraw %} has been down for more than 3 minutes"
+        description: "Job cosmos_sdk_{{ marker_id | replace('-', '_') }} has been down for more than 3 minutes"
       labels:
         severity: critical
         service: validator

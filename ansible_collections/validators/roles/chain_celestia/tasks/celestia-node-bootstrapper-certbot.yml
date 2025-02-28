@@ -1,0 +1,137 @@
+---
+- name: Celestia-node-bootstrapper-certbot | Create configuration directory
+  ansible.builtin.file:
+    path: "{{ chain_celestia_bootstrapper_nginx_config_path }}"
+    state: directory
+    mode: "0700"
+
+- name: Celestia-node-bootstrapper-certbot | Firewall Allow Incoming on public interface
+  community.general.ufw:
+    rule: allow
+    interface: "{{ public_interface }}"
+    direction: in
+    port: "{{ item }}"
+    proto: tcp
+  loop:
+    - http
+
+- name: Celestia-node-bootstrapper-certbot | Deploy nginx configuration
+  ansible.builtin.template:
+    src: bootstrapper_{{ item }}
+    dest: "{{ chain_celestia_bootstrapper_nginx_config_path }}/{{ item }}"
+    mode: "0644"
+  notify: Restart nginx
+  loop:
+    - certbot-server.conf
+    - nginx.conf
+
+- name: Celestia-node-bootstrapper-certbot | Deploy certbot files
+  ansible.builtin.template:
+    src: bootstrapper_{{ item }}
+    dest: "{{ chain_celestia_bootstrapper_nginx_config_path }}/{{ item }}"
+    mode: "0755"
+  loop:
+    - certificate.sh
+    - certbot_deploy_hook.sh
+
+- name: Celestia-node-bootstrapper-certbot | Quadlet certbot volumes files
+  containers.podman.podman_volume:
+    name: "{{ item }}"
+    state: quadlet
+    label:
+      app: celestia-bootstrapper
+  notify: Restart nginx
+  loop:
+    - certbot-certs
+    - certbot-root
+
+- name: Celestia-node-bootstrapper-certbot | Quadlet nginx container file
+  containers.podman.podman_container:
+    name: nginx
+    image: "{{ chain_celestia_bootstrapper_nginx_image }}"
+    state: quadlet
+    volumes:
+      - "{{ chain_celestia_bootstrapper_nginx_config_path }}/certbot-server.conf:/etc/nginx/conf.d/certbot-server.conf:ro"
+      - "{{ chain_celestia_bootstrapper_nginx_config_path }}/nginx.conf:/etc/nginx.conf:ro"
+      - certbot-certs.volume:/etc/nginx/ssl:bind
+      - certbot-root.volume:/var/www/certbot:bind
+    network: host
+    label:
+      app: celestia-bootstrapper
+    quadlet_options:
+      - |
+
+        [Unit]
+        Description=Nginx reverse proxy
+        After=network-online.target
+        Wants=network-online.target
+
+        [Service]
+        Restart=always
+        RestartSec=3
+        TimeoutStartSec=900
+
+        [Install]
+        WantedBy=default.target
+  notify: Restart nginx
+
+- name: Celestia-node-bootstrapper-certbot | Certbot systemd file
+  ansible.builtin.copy:
+    content: |
+      [Unit]
+      Description=Certbot renewal
+      After=local-fs.target
+      After=network-online.target
+
+      [Service]
+      Type=oneshot
+      ExecStart=/usr/bin/podman run -it -v "{{ chain_celestia_bootstrapper_nginx_config_path }}/certbot_deploy_hook.sh:/certbot_deploy_hook.sh:rw" -v "/home/{{ chain_celestia_user }}/celestia-bootstrapper-certs:/home/{{ chain_celestia_user }}/celestia-bootstrapper-certs:rw" -v "{{ chain_celestia_bootstrapper_nginx_config_path }}/certificate.sh:/entrypoint.sh:z,ro" -v "/mnt/container-volumes/certbot-certs/_data:/etc/letsencrypt:rw" -v "/mnt/container-volumes/certbot-root/_data:/var/www/certbot:rw" --entrypoint /entrypoint.sh  docker.io/certbot/certbot:v3.2.0
+      ExecStart=/usr/bin/systemctl restart celestia-bootstrapper-{{ chain_celestia_chain_id }}.service
+
+      [Install]
+      WantedBy=multi-user.target
+    dest: /etc/systemd/system/certbot.service
+    mode: '0644'
+
+- name: Celestia-node-bootstrapper-certbot | Certbot systemd timer file
+  ansible.builtin.copy:
+    content: |
+      [Unit]
+      Description=Run Certbot weekly
+
+      [Timer]
+      OnUnitInactiveSec=1week
+      AccuracySec=1h
+      Unit=certbot.service
+
+      [Install]
+      WantedBy=timers.target
+    dest: /etc/systemd/system/certbot.timer
+    mode: '0644'
+
+- name: Celestia-node-bootstrapper-certbot | Enable systemd service
+  ansible.builtin.systemd:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+  loop:
+    - nginx
+    - certbot.timer
+
+- name: Celestia-node-bootstrapper-certbot | Enable certbot systemd service
+  ansible.builtin.systemd:
+    name: certbot
+    enabled: true
+    daemon_reload: true
+
+- name: Check if directory exists
+  ansible.builtin.stat:
+    path: /mnt/container-volumes/certbot-certs/_data/live/{{ chain_celestia_bootstrapper_public_domain }}
+  register: directory_result
+
+- name: Start the certbot service to generate certificates
+  ansible.builtin.service:
+    name: certbot
+    state: started
+  when: not directory_result.stat.exists

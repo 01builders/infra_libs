@@ -2,3 +2,4 @@
 chain_celestia_alloy_config_path: /root/.local/share/alloy
 chain_celestia_da_otel_config_path: /root/.local/share/celestia-da-otel-collector
 chain_celestia_vmalert_config_path: /root/.local/share/vmalert
+chain_celestia_bootstrapper_nginx_config_path: /root/.local/share/bootstrapper_nginx

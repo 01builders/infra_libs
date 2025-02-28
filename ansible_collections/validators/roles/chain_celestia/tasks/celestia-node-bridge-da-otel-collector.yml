@@ -36,7 +36,7 @@
           endpoint: '{{ remote_otel_endpoint }}'
         prometheus:
           endpoint: '0.0.0.0:{{ chain_celestia_da_otel_da_prometheus_port }}'
-          namespace: celestia
+          namespace: {{ chain_celestia_chain_id }}
           send_timestamps: true
           metric_expiration: 180m
           enable_open_metrics: true

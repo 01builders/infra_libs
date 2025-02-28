@@ -11,15 +11,12 @@
 
 - name: TMKMS | Create directories
   ansible.builtin.file:
-    path: "{{ item }}"
+    path: /home/{{ chain_celestia_user }}/.tmkms/{{ chain_celestia_chain_id }}
     state: directory
     recurse: true
     mode: "0755"
     owner: "{{ chain_celestia_user }}"
     group: users
-  loop:
-    - "/home/{{ chain_celestia_user }}/.tmkms"
-    - "/home/{{ chain_celestia_user }}/.tmkms/{{ chain_celestia_chain_id }}"
 
 - name: TMKMS | Check if cargo is installed
   ansible.builtin.stat:
@@ -187,11 +184,10 @@
       secret_key = "/home/{{ chain_celestia_user }}/.tmkms/{{ chain_celestia_chain_id }}/secrets/kms-identity.key"
       protocol_version = "v0.34"
       reconnect = true
-    mode: "0644"
+    mode: "0755"
   notify: Restart {{ service_name }}
   become: true
   become_user: "{{ chain_celestia_user }}"
-  changed_when: true
 
 - name: TMKMS | Enable systemd service
   ansible.builtin.systemd:

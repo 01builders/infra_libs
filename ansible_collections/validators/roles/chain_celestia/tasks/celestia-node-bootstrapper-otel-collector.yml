@@ -1,0 +1,134 @@
+---
+- name: Celestia-bootstrapper-otel-collector | Set vars
+  ansible.builtin.set_fact:
+    service_name: celestia-bootstrapper-otel-collector-{{ chain_celestia_chain_id }}
+
+- name: Create configuration directory
+  ansible.builtin.file:
+    path: "{{ chain_celestia_da_otel_config_path }}"
+    state: directory
+    mode: "0700"
+
+- name: Celestia-bootstrapper-otel-collector | Deploy configuration
+  ansible.builtin.copy:
+    dest: "{{ chain_celestia_da_otel_config_path }}/otel-bootstrapper-config.yml"
+    content: |
+      receivers:
+        otlp:
+          protocols:
+            http:
+              endpoint: '0.0.0.0:{{ chain_celestia_bootstrapper_otlp_prometheus_port }}'
+      exporters:
+        prometheus:
+          endpoint: '0.0.0.0:{{ chain_celestia_bootstrapper_otlp_da_prometheus_port }}'
+          namespace: {{ chain_celestia_chain_id }}
+          send_timestamps: true
+          metric_expiration: 180m
+          enable_open_metrics: true
+          resource_to_telemetry_conversion:
+            enabled: true
+      processors:
+        batch:
+        memory_limiter:
+          limit_mib: 1024
+          spike_limit_mib: 512
+          check_interval: 5s
+      service:
+        pipelines:
+          metrics:
+            receivers: [otlp]
+            exporters: [prometheus]
+        telemetry:
+          metrics:
+            readers:
+              - pull:
+                  exporter:
+                    prometheus:
+                      host: '0.0.0.0'
+                      port: {{ chain_celestia_bootstrapper_otlp_otel_prometheus_port }}
+    mode: "0644"
+  notify: Restart {{ service_name }}
+
+- name: Celestia-bootstrapper-otel-collector | Quadlet container file
+  containers.podman.podman_container:
+    name: "{{ service_name }}"
+    image: "{{ chain_celestia_da_otel_image }}"
+    state: quadlet
+    command: --config=/config/otel-bootstrapper-config.yaml
+    network: host
+    volume:
+      - "{{ chain_celestia_da_otel_config_path }}/otel-bootstrapper-config.yml:/config/otel-bootstrapper-config.yaml"
+    label:
+      app: celestia-{{ chain_celestia_chain_id }}
+    quadlet_options:
+      - |
+
+        [Unit]
+        Description=Celestia-bootstrapper-otel-collector for bootstrapper {{ chain_celestia_chain_id }}
+        After=network-online.target
+        Wants=network-online.target
+
+        [Service]
+        Restart=always
+        RestartSec=3
+        TimeoutStartSec=900
+
+        [Install]
+        WantedBy=default.target
+  notify: Restart {{ service_name }}
+
+- name: Celestia-bootstrapper-otel-collector | Add sudoers file
+  ansible.builtin.copy:
+    dest: "/etc/sudoers.d/{{ chain_celestia_user }}-{{ service_name }}"
+    content: |
+      {{ chain_celestia_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl start {{ service_name }}.service
+      {{ chain_celestia_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl stop {{ service_name }}.service
+      {{ chain_celestia_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart {{ service_name }}.service
+      {{ chain_celestia_user }} ALL=(ALL) NOPASSWD: /usr/bin/systemctl status {{ service_name }}.service
+    mode: "0440"
+    validate: /usr/sbin/visudo -cf %s
+
+
+- name: Celestia-bootstrapper-otel-collector | Enable systemd service
+  ansible.builtin.systemd:
+    name: "{{ service_name }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+
+- name: Celestia-bootstrapper-otel-collector | Alloy | Edit configuration
+  ansible.builtin.blockinfile:
+    path: "{{ chain_celestia_alloy_config_path }}/config.alloy"
+    marker: /// {mark} ANSIBLE MANAGED BLOCK - {{ service_name }}
+    append_newline: true
+    block: |
+      prometheus.scrape "celestia_bootstrapper_otel_collector_otel_bootstrapper_{{ chain_celestia_chain_id | replace('-', '_') }}" {
+        clustering {
+          enabled = true
+        }
+        targets = [{
+          __address__ = "{{ ansible_hostname }}:{{ chain_celestia_bootstrapper_otlp_otel_prometheus_port }}",
+        }]
+        forward_to      = [prometheus.remote_write.victoriametrics.receiver]
+      }
+
+      prometheus.scrape "celestia_bootstrapper_otel_collector_da_bootstrapper_{{ chain_celestia_chain_id | replace('-', '_') }}" {
+        clustering {
+          enabled = true
+        }
+        targets = [{
+          __address__ = "{{ ansible_hostname }}:{{ chain_celestia_bootstrapper_otlp_da_prometheus_port }}",
+        }]
+        forward_to      = [prometheus.remote_write.victoriametrics.receiver]
+      }
+
+  notify: Restart alloy
+
+- name: Celestia-bootstrapper-otel-collector | Deploy celestia bootstrapper alerts
+  when: chain_celestia_alerts is defined and chain_celestia_alerts | bool
+  ansible.builtin.template:
+    src: bootstrapper-alerts.yml.j2
+    dest: "{{ chain_celestia_vmalert_config_path }}/celestia-bootstrapper-{{ chain_celestia_chain_id }}.yml"
+    mode: "0644"
+  delegate_to: observability
+  notify: Restart vmalert
