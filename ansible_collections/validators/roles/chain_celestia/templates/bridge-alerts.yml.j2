@@ -19,10 +19,11 @@ groups:
 
     - alert: StalledBlocks
       expr: increase(celestia_hdr_sync_subjective_head_gauge{service_namespace="{{ chain_celestia_chain_id | replace('-', '_') }}"}[15m]) == 0
+      for: 15m
       labels:
         severity: critical
       annotations:
-        description: 'Celestia-bridge chain_id: `{{ chain_celestia_chain_id | replace('-', '_') }}` / Block production stalled. The node has not produced any blocks in the last 5 minutes.'
+        description: 'Celestia-bridge chain_id: `{{ chain_celestia_chain_id | replace('-', '_') }}` / Block production stalled. The node has not produced any blocks in the last 15 minutes.'
 
     - alert: NoReceiverMetricPoints
       expr: increase(otelcol_receiver_accepted_metric_points[15m]) == 0

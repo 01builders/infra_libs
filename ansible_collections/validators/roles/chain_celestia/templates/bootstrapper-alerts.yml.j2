@@ -18,11 +18,12 @@ groups:
         description: 'Celestia-bootstrapper chain_id: `{{ chain_celestia_chain_id }}` / The node is not connected to any archival peers'
 
     - alert: StalledBlocks
-      expr: increase({{ chain_celestia_chain_id | replace('-', '_') }}_hdr_sync_subjective_head_gauge{service_name="Full",service_namespace="{{ chain_celestia_chain_id }}"}[15m]) == 0
+      expr: increase({{ chain_celestia_chain_id | replace('-', '_') }}_hdr_sync_subjective_head_gauge{service_name="Full",service_namespace="{{ chain_celestia_chain_id }}"}[30m]) == 0
+      for: 15m
       labels:
         severity: critical
       annotations:
-        description: 'Celestia-bootstrapper chain_id: `{{ chain_celestia_chain_id }}` / Block production stalled. The node has not produced any blocks in the last 5 minutes.'
+        description: 'Celestia-bootstrapper chain_id: `{{ chain_celestia_chain_id }}` / Block production stalled. The node has not produced any blocks in the last 30 minutes.'
 
     - alert: InstanceDown
       expr: up{job="prometheus.scrape.celestia_bootstrapper_otel_collector_da_{{ chain_celestia_chain_id }}"} == 0

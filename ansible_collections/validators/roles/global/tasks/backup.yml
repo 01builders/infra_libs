@@ -1,0 +1,30 @@
+---
+- name: Backup | Create directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+    owner: "{{ global_user }}"
+    group: users
+  become: true
+  become_user: "{{ global_user }}"
+  loop:
+    - "{{ global_home_dir }}/scripts"
+
+- name: Backup | Copy script
+  ansible.builtin.copy:
+    src: backup.sh
+    dest: "{{ global_home_dir }}/scripts/backup.sh"
+    mode: "755"
+  become: true
+  become_user: "{{ global_user }}"
+
+- name: Backup | Crontab
+  ansible.builtin.cron:
+    name: backup - {{ item }}h
+    minute: "{{ item }}"
+    hour: "2"
+    job: "{{ global_home_dir }}/scripts/backup.sh"
+  become: true
+  become_user: "{{ global_user }}"
+  loop: [8, 20]
