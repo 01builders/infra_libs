@@ -79,6 +79,9 @@
     name: binarybuilders.validators.global
     tasks_from: cosmos-validator-watcher.yml
 
+- name: Jester
+  ansible.builtin.include_tasks: jester.yml
+
 - name: Validator-observability
   ansible.builtin.include_role:
     name: binarybuilders.validators.observability

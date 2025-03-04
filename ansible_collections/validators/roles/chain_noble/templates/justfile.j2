@@ -12,39 +12,79 @@ default:
 
 # Variables
 validator_service := "appd-{{ chain_noble_chain_id }}.service"
+jester_service := "jester-{{ chain_noble_chain_id }}.service"
 log_lines := "100"
 
+### VALIDATOR-APP
+
 # Start {{ chain_noble_appd_name }}-{{ chain_noble_chain_id }} systemd service
-start:
+appd-start:
     @echo "Starting {{ chain_noble_appd_name }}-{{ chain_noble_chain_id }}..."
     sudo /usr/bin/systemctl start {% raw %}{{ validator_service }}
 {% endraw %}
     @sleep 2
-    @just status
+    @just appd-status
 
 # Stop {{ chain_noble_appd_name }}-{{ chain_noble_chain_id }} systemd service
-stop:
+appd-stop:
     @echo "Stopping {{ chain_noble_appd_name }}-{{ chain_noble_chain_id }}..."
     sudo /usr/bin/systemctl stop {% raw %}{{ validator_service }}
 {% endraw %}
     @sleep 2
-    @just status
+    @just appd-status
 
 # Restart {{ chain_noble_appd_name }}-{{ chain_noble_chain_id }} systemd service
-restart:
+appd-restart:
     @echo "Restarting {{ chain_noble_appd_name }}-{{ chain_noble_chain_id }}..."
     sudo /usr/bin/systemctl restart {% raw %}{{ validator_service }}
 {% endraw %}
     @sleep 2
-    @just status
+    @just appd-status
 
 # Check {{ chain_noble_appd_name }}-{{ chain_noble_chain_id }} systemd service status
-status:
+appd-status:
     @echo "{{ chain_noble_appd_name }}-{{ chain_noble_chain_id }} status:"
     sudo /usr/bin/systemctl status {% raw %}{{ validator_service }}
 {% endraw %}
 
 # Consult {{ chain_noble_appd_name }}-{{ chain_noble_chain_id }} systemd service logs
-logs:
+appd-logs:
     journalctl --unit={% raw %}{{ validator_service }} --follow
+{% endraw %}
+
+### JESTER
+
+# Start slinky-{{ chain_noble_chain_id }} systemd service
+jester-start:
+    @echo "Starting slinky-{{ chain_noble_chain_id }}..."
+    sudo /usr/bin/systemctl start {% raw %}{{ jester_service }}
+{% endraw %}
+    @sleep 2
+    @just jester-status
+
+# Stop slinky-{{ chain_noble_chain_id }} systemd service
+jester-stop:
+    @echo "Stopping slinky-{{ chain_noble_chain_id }}..."
+    sudo /usr/bin/systemctl stop {% raw %}{{ jester_service }}
+{% endraw %}
+    @sleep 2
+    @just jester-status
+
+# Restart slinky-{{ chain_noble_chain_id }} systemd service
+jester-restart:
+    @echo "Restarting slinky-{{ chain_noble_chain_id }}..."
+    sudo /usr/bin/systemctl restart {% raw %}{{ jester_service }}
+{% endraw %}
+    @sleep 2
+    @just jester-status
+
+# Check slinky-{{ chain_noble_chain_id }} systemd service status
+jester-status:
+    @echo "slinky-{{ chain_noble_chain_id }} status:"
+    sudo /usr/bin/systemctl status {% raw %}{{ jester_service }}
+{% endraw %}
+
+# Consult slinky-{{ chain_noble_chain_id }} systemd service logs
+jester-logs:
+    journalctl --unit={% raw %}{{ jester_service }} --follow
 {% endraw %}

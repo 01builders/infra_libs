@@ -32,7 +32,7 @@
 
       [Service]
       Type=simple
-      ExecStart=/home/{{ global_user }}/go/bin/jesterd start --metrics.address 0.0.0.0:{{ chain_noble_jester_port_prometheus_port }}
+      ExecStart=/home/{{ global_user }}/go/bin/jesterd start --server-address=localhost:{{ chain_noble_jester_port }} --ethereum.rpc-url={{ chain_noble_jester_rpc_url }} --ethereum.websocket-url={{ chain_noble_jester_websocket_url }} --metrics.enabled --metrics.address=0.0.0.0:{{ chain_noble_jester_prometheus_port }}
       User={{ global_user }}
       Group=users
       Restart=always
@@ -64,7 +64,7 @@
 
 - name: Jester | Alloy | Edit configuration
   ansible.builtin.blockinfile:
-    path: "{{ chain_neutron_alloy_config_path }}/config.alloy"
+    path: "{{ chain_noble_alloy_config_path }}/config.alloy"
     marker: /// {mark} ANSIBLE MANAGED BLOCK - {{ global_chain_id }} - jester
     append_newline: true
     block: |
@@ -73,18 +73,18 @@
           enabled = true
         }
         targets = [{
-          __address__ = "{{ ansible_hostname }}:{{ chain_noble_jester_port_prometheus_port }}",
+          __address__ = "{{ ansible_hostname }}:{{ chain_noble_jester_prometheus_port }}",
         }]
         forward_to      = [prometheus.remote_write.victoriametrics.receiver]
       }
 
   notify: Restart alloy
 
-# - name: Jester | Deploy slinky alerts
-#   when: chain_neutron_alerts is defined and chain_neutron_alerts | bool
-#   ansible.builtin.template:
-#     src: slinky-alerts.yml.j2
-#     dest: "{{ chain_neutron_vmalert_config_path }}/neutron-slinky-{{ chain_neutron_chain_id }}.yml"
-#     mode: "0644"
-#   delegate_to: observability
-#   notify: Restart vmalert
+- name: Jester | Deploy alerts
+  when: chain_noble_alerts is defined and chain_noble_alerts | bool
+  ansible.builtin.template:
+    src: jester-alerts.yml.j2
+    dest: "{{ chain_noble_vmalert_config_path }}/noble-jester-{{ chain_noble_chain_id }}.yml"
+    mode: "0644"
+  delegate_to: observability
+  notify: Restart vmalert

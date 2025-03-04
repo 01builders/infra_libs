@@ -4,6 +4,11 @@
     name: appd-{{ chain_noble_chain_id }}
     state: restarted
 
+- name: Restart jester-{{ chain_noble_chain_id }}
+  ansible.builtin.systemd_service:
+    name: jester-{{ chain_noble_chain_id }}
+    state: restarted
+
 - name: Restart cosmos-validator-watcher-{{ chain_noble_chain_id }}
   ansible.builtin.systemd_service:
     name: cosmos-validator-watcher-{{ chain_noble_chain_id }}
