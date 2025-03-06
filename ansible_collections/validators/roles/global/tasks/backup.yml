@@ -22,8 +22,8 @@
 - name: Backup | Crontab
   ansible.builtin.cron:
     name: backup - {{ item }}h
-    minute: "{{ item }}"
-    hour: "2"
+    minute: "2"
+    hour: "{{ item }}"
     job: "{{ global_home_dir }}/scripts/backup.sh"
   become: true
   become_user: "{{ global_user }}"

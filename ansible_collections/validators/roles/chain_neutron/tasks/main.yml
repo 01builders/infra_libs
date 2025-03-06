@@ -109,3 +109,20 @@
   loop:
     - appd-{{ global_chain_id }}
     - slinky-{{ global_chain_id }}
+
+- name: Backup
+  ansible.builtin.include_role:
+    name: binarybuilders.validators.global
+    tasks_from: backup.yml
+  vars:
+    global_user: "{{ chain_neutron_user }}"
+    global_home_dir: "/home/{{ chain_neutron_user }}"
+
+- name: Backup directories
+  ansible.builtin.copy:
+    dest: "/home/{{ chain_neutron_user }}/scripts/backup_directories.conf"
+    content: |
+      validator:{{ global_home_dir }}/config:/home/{{ chain_neutron_user }}/backups
+    mode: "0644"
+  become: true
+  become_user: "{{ chain_neutron_user }}"

@@ -14,10 +14,10 @@
     global_appd_rpc_port: "{{ chain_allora_appd_rpc_port }}"
     global_appd_prometheus_port: "{{ chain_allora_appd_prometheus_port }}"
     global_home_dir: /home/{{ chain_allora_user }}/.allorad
-    # global_watcher_quadlet_command:
-    #   - --http-addr :{{ chain_allora_watcher_prometheus_port }}
-    #   - --node http://localhost:{{ chain_allora_appd_rpc_port }}
-    #   - --validator {{ chain_allora_validator_pubkey }}:{{ chain_allora_chain_id }}
+    global_watcher_quadlet_command:
+      - --http-addr :{{ chain_allora_watcher_prometheus_port }}
+      - --node http://localhost:{{ chain_allora_appd_rpc_port }}
+      - --validator {{ chain_allora_validator_pubkey }}:{{ chain_allora_chain_id }}
     global_configuration_app_lines: "{{ chain_allora_configuration_app_lines }}"
     global_configuration_client_lines: "{{ chain_allora_configuration_client_lines }}"
     global_configuration_config_lines: "{{ chain_allora_configuration_config_lines }}"
@@ -71,19 +71,19 @@
     name: binarybuilders.validators.global
     tasks_from: appd-configuration.yml
 
-# - name: Cosmos-validator-watcher
-#   ansible.builtin.include_role:
-#     name: binarybuilders.validators.global
-#     tasks_from: cosmos-validator-watcher.yml
+- name: Cosmos-validator-watcher
+  ansible.builtin.include_role:
+    name: binarybuilders.validators.global
+    tasks_from: cosmos-validator-watcher.yml
 
-# - name: Validator-observability
-#   ansible.builtin.include_role:
-#     name: binarybuilders.validators.observability
-#   vars:
-#     observability_alerts: "{{ chain_allora_alerts }}"
-#     observability_chain_id: "{{ chain_allora_chain_id }}"
-#     observability_prometheus_sdk_prometheus_port: "{{ chain_allora_allorad_prometheus_port }}"
-#     observability_prometheus_watcher_prometheus_port: "{{ chain_allora_watcher_prometheus_port }}"
+- name: Validator-observability
+  ansible.builtin.include_role:
+    name: binarybuilders.validators.observability
+  vars:
+    observability_alerts: "{{ chain_allora_alerts }}"
+    observability_chain_id: "{{ chain_allora_chain_id }}"
+    observability_prometheus_sdk_prometheus_port: "{{ chain_allora_allorad_prometheus_port }}"
+    observability_prometheus_watcher_prometheus_port: "{{ chain_allora_watcher_prometheus_port }}"
 
 - name: Deploy justfile
   ansible.builtin.template:
@@ -93,9 +93,26 @@
     group: users
     mode: "0644"
 
-- name: Configure osmosis shell
+- name: Configure allora shell
   ansible.builtin.include_role:
     name: binarybuilders.servers.configure_hosts
     tasks_from: shell.yml
   vars:
     configure_hosts_users_username: "{{ chain_allora_user }}"
+
+- name: Backup
+  ansible.builtin.include_role:
+    name: binarybuilders.validators.global
+    tasks_from: backup.yml
+  vars:
+    global_user: "{{ chain_allora_user }}"
+    global_home_dir: "/home/{{ chain_allora_user }}"
+
+- name: Backup directories
+  ansible.builtin.copy:
+    dest: "/home/{{ chain_allora_user }}/scripts/backup_directories.conf"
+    content: |
+      validator:{{ global_home_dir }}/config:/home/{{ chain_allora_user }}/backups
+    mode: "0644"
+  become: true
+  become_user: "{{ chain_allora_user }}"
