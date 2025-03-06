@@ -3,24 +3,22 @@ groups:
     rules:
 
     - alert: InstanceDown
-      expr: up{job="prometheus.scrape.jester_{{ chain_neutron_chain_id | replace('-', '_') }}"} == 0
-      for: 3m
+      expr: up{job="prometheus.scrape.jester_{{ chain_noble_chain_id | replace('-', '_') }}"} == 0
+      for: 5m
       annotations:
-        title: "Instance prometheus.scrape.jester_{{ chain_neutron_chain_id | replace('-', '_') }} down"
-        description: "{{ chain_neutron_chain_id | replace('-', '_') }} has been down for more than 3 minutes"
+        title: "Instance prometheus.scrape.jester_{{ chain_noble_chain_id | replace('-', '_') }} down"
+        description: "{{ chain_noble_chain_id | replace('-', '_') }} has been down for more than 3 minutes"
       labels:
         severity: critical
         service: validator
         component: jester
         chain: noble
 
-    - alert: HighAPIErrorRate
-      expr: |
-        sum(rate(side_car_api_http_status_code{status_code=~"5..",job="prometheus.scrape.jester_{{ chain_neutron_chain_id | replace('-', '_') }}"}[5m])) by (provider)
-        /
-        sum(rate(side_car_api_http_status_code{job="prometheus.scrape.jester_{{ chain_neutron_chain_id | replace('-', '_') }}"}[5m])) by (provider) > 0.6
+    - alert: EthereumSubscriptionInterruption
+      expr: rate(eth_sub_interruption_counter[5m]) > 0
+      for: 5m
       labels:
         severity: warning
-        service: validator
-        component: jester
-        chain: noble
+      annotations:
+        summary: "Ethereum subscription interruption detected for Jester (noble-1 mainnet)"
+        description: "The Ethereum subscription has been interrupted {% raw %}{{ $value }}{% endraw %} times in the last 5 minutes. This may affect application functionality."
