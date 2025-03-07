@@ -194,3 +194,13 @@
     name: "{{ service_name }}"
     enabled: true
     daemon_reload: true
+
+- name: Backup directories
+  ansible.builtin.lineinfile:
+    path: /home/{{ chain_celestia_user }}/scripts/backup_directories.conf
+    create: true
+    regexp: ^tmkms
+    line: tmkms:/home/{{ chain_celestia_user }}/.tmkms:/home/{{ chain_celestia_user }}/backups
+    mode: "0644"
+  become: true
+  become_user: "{{ chain_celestia_user }}"

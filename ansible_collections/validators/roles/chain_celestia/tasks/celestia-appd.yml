@@ -189,3 +189,13 @@
     enabled: true
     state: started
     daemon_reload: true
+
+- name: Backup directories
+  ansible.builtin.lineinfile:
+    path: /home/{{ chain_celestia_user }}/scripts/backup_directories.conf
+    create: true
+    regexp: ^validator
+    line: validator:{{ home_dir }}/config:/home/{{ chain_celestia_user }}/backups
+    mode: "0644"
+  become: true
+  become_user: "{{ chain_celestia_user }}"

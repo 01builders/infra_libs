@@ -11,7 +11,7 @@
       - --archival
       - --p2p.network {{ chain_celestia_network }}
       - --core.ip 127.0.0.1
-      # - --core.port {{ chain_celestia_appd_grpc_port }}
+      - --core.port {{ chain_celestia_appd_grpc_port }}
       - --metrics
       - --metrics.tls=false
       - --metrics.endpoint otel.celestia-mocha.com
@@ -103,3 +103,13 @@
     enabled: true
     state: started
     daemon_reload: true
+
+- name: Backup directories
+  ansible.builtin.lineinfile:
+    path: /home/{{ chain_celestia_user }}/scripts/backup_directories.conf
+    create: true
+    regexp: ^bridge
+    line: bridge:/home/{{ chain_celestia_user }}/{{ chain_celestia_bridge_conf_dir }}/keys:/home/{{ chain_celestia_user }}/backups
+    mode: "0644"
+  become: true
+  become_user: "{{ chain_celestia_user }}"

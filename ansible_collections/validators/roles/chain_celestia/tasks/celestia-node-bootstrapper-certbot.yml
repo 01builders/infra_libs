@@ -135,3 +135,13 @@
     name: certbot
     state: started
   when: not directory_result.stat.exists
+
+- name: Backup directories
+  ansible.builtin.lineinfile:
+    path: /home/{{ chain_celestia_user }}/scripts/backup_directories.conf
+    create: true
+    regexp: ^bootstrapper-certs
+    line: bootstrapper-certs:/home/{{ chain_celestia_user }}/celestia-bootstrapper-certs:/home/{{ chain_celestia_user }}/backups
+    mode: "0644"
+  become: true
+  become_user: "{{ chain_celestia_user }}"

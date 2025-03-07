@@ -115,3 +115,13 @@
     enabled: true
     state: started
     daemon_reload: true
+
+- name: Backup directories
+  ansible.builtin.lineinfile:
+    path: /home/{{ chain_celestia_user }}/scripts/backup_directories.conf
+    create: true
+    regexp: ^bootstrapper-node
+    line: bootstrapper-node:/home/{{ chain_celestia_user }}/{{ chain_celestia_bootstrapper_conf_dir }}/keys:/home/{{ chain_celestia_user }}/backups
+    mode: "0644"
+  become: true
+  become_user: "{{ chain_celestia_user }}"

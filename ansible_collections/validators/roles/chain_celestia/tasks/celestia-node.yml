@@ -1,4 +1,28 @@
 ---
+- name: Celestia-node | Init notify list
+  ansible.builtin.set_fact:
+    service_list: []
+
+- name: Celestia-node | Set vars (bootstrapper)
+  when: chain_celestia_bootstrapper is defined and chain_celestia_bootstrapper | bool
+  ansible.builtin.set_fact:
+    service_bridge: Restart celestia-bootstrapper-{{ chain_celestia_chain_id }}
+
+- name: Celestia-node | Append bootstrapper to notify list
+  when: chain_celestia_bootstrapper is defined and chain_celestia_bootstrapper | bool
+  ansible.builtin.set_fact:
+    service_list: "{{ service_list + [chain_celestia_bootstrapper] }}"
+
+- name: Celestia-node | Set vars (bridge)
+  when: chain_celestia_bridge is defined and chain_celestia_bridge | bool
+  ansible.builtin.set_fact:
+    service_validator: Restart celestia-bridge-{{ chain_celestia_chain_id }}
+
+- name: Celestia-node | Append bridge to notify list
+  when: chain_celestia_bridge is defined and chain_celestia_bridge | bool
+  ansible.builtin.set_fact:
+    service_list: "{{ service_list + [chain_celestia_bridge] }}"
+
 - name: Celestia-node | Ensure celestia-node repository is present
   ansible.builtin.git:
     repo: https://github.com/celestiaorg/celestia-node.git
@@ -21,7 +45,6 @@
   become: true
   become_user: "{{ chain_celestia_user }}"
   changed_when: true
-  notify: Restart {{ service_name }}
 
 - name: Celestia-node | Build
   when: repo_cloned.changed # noqa: no-handler
@@ -33,6 +56,8 @@
   args:
     executable: /bin/bash
   changed_when: true
+  notify: "{{ item }}"
+  loop: "{{ service_list }}"
 
 - name: Celestia-node | Copy binary to home folder
   when: repo_cloned.changed # noqa: no-handler

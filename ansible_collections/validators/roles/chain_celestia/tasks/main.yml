@@ -47,6 +47,14 @@
   ansible.builtin.include_role:
     name: install_go
 
+- name: Backup
+  ansible.builtin.include_role:
+    name: binarybuilders.validators.global
+    tasks_from: backup.yml
+  vars:
+    global_user: "{{ chain_celestia_user }}"
+    global_home_dir: "/home/{{ chain_celestia_user }}"
+
 - name: Celestia-appd
   when: chain_celestia_appd is defined and chain_celestia_appd | bool
   ansible.builtin.include_tasks: celestia-appd.yml
@@ -73,7 +81,7 @@
 
 - name: Celestia-da-otel-collector - bootstrapper
   ansible.builtin.include_tasks: celestia-node-bootstrapper-otel-collector.yml
-  when: chain_celestia_bridge is defined and chain_celestia_bridge | bool
+  when: chain_celestia_bootstrapper is defined and chain_celestia_bootstrapper | bool
 
 - name: Validator-observability
   when: chain_celestia_appd is defined and chain_celestia_appd | bool
@@ -100,22 +108,3 @@
     owner: "{{ chain_celestia_user }}"
     group: users
     mode: "0644"
-
-- name: Backup
-  ansible.builtin.include_role:
-    name: binarybuilders.validators.global
-    tasks_from: backup.yml
-  vars:
-    global_user: "{{ chain_celestia_user }}"
-    global_home_dir: "/home/{{ chain_celestia_user }}"
-
-- name: Backup directories
-  ansible.builtin.copy:
-    dest: /home/{{ chain_celestia_user }}/scripts/backup_directories.conf
-    content: |
-      bootstrapper:/home/{{ chain_celestia_user }}/.celestia-full-mocha-4/keys:/home/{{ chain_celestia_user }}/backups
-      bridge:/home/{{ chain_celestia_user }}/.celestia-bridge-mocha-4/keys:/home/{{ chain_celestia_user }}/backups
-      validator:/home/{{ chain_celestia_user }}/.celestia-app/config:/home/{{ chain_celestia_user }}/backups
-    mode: "0644"
-  become: true
-  become_user: "{{ chain_celestia_user }}"
