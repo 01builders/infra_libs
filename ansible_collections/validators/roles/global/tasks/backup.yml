@@ -23,8 +23,7 @@
   ansible.builtin.cron:
     name: backup - {{ item }}h
     minute: "2"
-    hour: "{{ item }}"
+    hour: "8"
     job: "{{ global_home_dir }}/scripts/backup.sh"
   become: true
   become_user: "{{ global_user }}"
-  loop: [8, 20]
