@@ -1,5 +1,6 @@
 ---
 - name: Backup | Create directories
+  tags: [backup]
   ansible.builtin.file:
     path: "{{ item }}"
     state: directory
@@ -12,6 +13,7 @@
     - "{{ global_home_dir }}/scripts"
 
 - name: Backup | Copy script
+  tags: [backup]
   ansible.builtin.copy:
     src: backup.sh
     dest: "{{ global_home_dir }}/scripts/backup.sh"
@@ -20,8 +22,9 @@
   become_user: "{{ global_user }}"
 
 - name: Backup | Crontab
+  tags: [backup]
   ansible.builtin.cron:
-    name: backup - {{ item }}h
+    name: backup - 8h
     minute: "2"
     hour: "8"
     job: "{{ global_home_dir }}/scripts/backup.sh"

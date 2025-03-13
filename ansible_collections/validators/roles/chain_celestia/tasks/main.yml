@@ -18,6 +18,13 @@
     create_home: true
     state: present
 
+- name: Configure shell
+  ansible.builtin.include_role:
+    name: binarybuilders.servers.configure_hosts
+    tasks_from: shell.yml
+  vars:
+    configure_hosts_users_username: "{{ chain_celestia_user }}"
+
 - name: Add user to systemd-journal group
   ansible.builtin.user:
     name: "{{ chain_celestia_user }}"
@@ -45,7 +52,8 @@
 - name: Install Go
   when: (chain_celestia_bridge is defined and chain_celestia_bridge | bool) or (chain_celestia_appd is defined and chain_celestia_appd | bool)
   ansible.builtin.include_role:
-    name: install_go
+    name: binarybuilders.validators.global
+    tasks_from: install-go.yml
 
 - name: Backup
   ansible.builtin.include_role:

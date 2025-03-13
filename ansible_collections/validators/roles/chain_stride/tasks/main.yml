@@ -35,6 +35,21 @@
       - gcc
     state: present
 
+- name: Create user
+  ansible.builtin.user:
+    name: "{{ chain_stride_user }}"
+    group: users
+    system: true
+    create_home: true
+    state: present
+
+- name: Configure shell
+  ansible.builtin.include_role:
+    name: binarybuilders.servers.configure_hosts
+    tasks_from: shell.yml
+  vars:
+    configure_hosts_users_username: "{{ chain_stride_user }}"
+
 - name: Add user to systemd-journal group
   ansible.builtin.user:
     name: "{{ chain_stride_user }}"
@@ -52,9 +67,10 @@
   loop:
     - "/home/{{ chain_stride_user }}/go/bin"
 
-- name: Install Go
+- name: Install go
   ansible.builtin.include_role:
-    name: install_go
+    name: binarybuilders.validators.global
+    tasks_from: install-go.yml
 
 - name: Strided + Cosmovisor
   ansible.builtin.include_role:

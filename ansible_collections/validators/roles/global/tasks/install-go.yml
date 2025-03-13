@@ -28,6 +28,7 @@
         state: directory
         mode: "0755"
 
+
     - name: Extract Golang to /usr/local/{{ install_go_version }}
       ansible.builtin.unarchive:
         src: "/tmp/go{{ install_go_version }}.linux-{{ go_arch }}.tar.gz"
@@ -55,6 +56,17 @@
     mode: "0644"
     owner: "{{ install_go_user }}"
     group: users
+
+- name: Create Fish directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: "0755"
+    owner: "{{ install_go_user }}"
+    group: users
+  loop:
+    - /home/{{ install_go_user }}/.config/fish
+    - /home/{{ install_go_user }}/.config/fish/conf.d
 
 - name: Fish config
   ansible.builtin.copy:

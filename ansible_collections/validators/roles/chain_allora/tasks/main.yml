@@ -40,6 +40,13 @@
     create_home: true
     state: present
 
+- name: Configure shell
+  ansible.builtin.include_role:
+    name: binarybuilders.servers.configure_hosts
+    tasks_from: shell.yml
+  vars:
+    configure_hosts_users_username: "{{ chain_allora_user }}"
+
 - name: Add user to systemd-journal group
   ansible.builtin.user:
     name: "{{ chain_allora_user }}"
@@ -59,7 +66,8 @@
 
 - name: Install Go
   ansible.builtin.include_role:
-    name: install_go
+    name: binarybuilders.validators.global
+    tasks_from: install-go.yml
 
 - name: Allorad + Cosmovisor
   ansible.builtin.include_role:

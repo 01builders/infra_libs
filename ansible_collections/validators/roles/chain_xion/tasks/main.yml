@@ -27,9 +27,10 @@
   loop:
     - "/home/{{ chain_xion_user }}/go/bin"
 
-- name: Install Go
+- name: Install go
   ansible.builtin.include_role:
-    name: install_go
+    name: binarybuilders.validators.global
+    tasks_from: install-go.yml
 
 - name: Xiond | Binary
   ansible.builtin.include_tasks: xiond-binary.yml
