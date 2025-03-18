@@ -1,4 +1,8 @@
 ---
+victoriametrics_alertmanager_enabled: true
 victoriametrics_alertmanager_config_path: /root/.local/share/alertmanager
 victoriametrics_alloy_config_path: /root/.local/share/alloy
+victoriametrics_victorialogs_enabled: true
+victoriametrics_victoriametrics_enabled: true
+victoriametrics_vmalert_enabled: true
 victoriametrics_vmalert_config_path: /root/.local/share/vmalert

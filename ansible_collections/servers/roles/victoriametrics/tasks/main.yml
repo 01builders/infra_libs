@@ -1,20 +1,24 @@
 ---
 - name: VictoriaMetrics
+  when: victoriametrics_victoriametrics_enabled is defined and victoriametrics_victoriametrics_enabled | bool
   ansible.builtin.include_tasks: victoriametrics.yml
   tags:
     - victoriametrics
 
 - name: VMAlert
+  when: victoriametrics_vmalert_enabled is defined and victoriametrics_vmalert_enabled | bool
   ansible.builtin.include_tasks: vmalert.yml
   tags:
     - vmalert
 
 - name: Alertmanager
+  when: victoriametrics_alertmanager_enabled is defined and victoriametrics_alertmanager_enabled | bool
   ansible.builtin.include_tasks: alertmanager.yml
   tags:
     - alertmanager
 
 - name: VictoriaLogs
+  when: victoriametrics_victorialogs_enabled is defined and victoriametrics_victorialogs_enabled | bool
   ansible.builtin.include_tasks: victorialogs.yml
   tags:
     - victorialogs
