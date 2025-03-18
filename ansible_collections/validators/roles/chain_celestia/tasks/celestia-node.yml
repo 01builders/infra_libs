@@ -1,17 +1,17 @@
 ---
 - name: Celestia-node | Init notify list
   ansible.builtin.set_fact:
-    service_list: []
+    node_service_list: []
 
 - name: Celestia-node | Set vars (bootstrapper)
   when: chain_celestia_bootstrapper is defined and chain_celestia_bootstrapper | bool
   ansible.builtin.set_fact:
-    service_bridge: Restart celestia-bootstrapper-{{ chain_celestia_chain_id }}
+    node_service_list: Restart celestia-bootstrapper-{{ chain_celestia_chain_id }}
 
 - name: Celestia-node | Append bootstrapper to notify list
   when: chain_celestia_bootstrapper is defined and chain_celestia_bootstrapper | bool
   ansible.builtin.set_fact:
-    service_list: "{{ service_list + [service_bridge] }}"
+    node_service_list: "{{ node_service_list + [service_bridge] }}"
 
 - name: Celestia-node | Set vars (bridge)
   when: chain_celestia_bridge is defined and chain_celestia_bridge | bool
@@ -21,7 +21,7 @@
 - name: Celestia-node | Append bridge to notify list
   when: chain_celestia_bridge is defined and chain_celestia_bridge | bool
   ansible.builtin.set_fact:
-    service_list: "{{ service_list + [service_validator] }}"
+    node_service_list: "{{ node_service_list + [service_validator] }}"
 
 - name: Celestia-node | Ensure celestia-node repository is present
   ansible.builtin.git:
