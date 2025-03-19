@@ -16,10 +16,14 @@ groups:
         grafanaDashboardUrl: "http://{{ hostvars['observability'].ansible_host }}.{{ public_domain }}:3000/d/cosmos-validator-watcher/cosmos-validator-watcher-by-chain?var-chain_id={{ chain_neutron_chain_id }}"
 
     - alert: HighAPIErrorRate
+      for: 3m
       expr: |
         sum(rate(side_car_api_http_status_code{status_code=~"5..",job="prometheus.scrape.slinky_{{ chain_neutron_chain_id | replace('-', '_') }}"}[5m])) by (provider)
         /
         sum(rate(side_car_api_http_status_code{job="prometheus.scrape.slinky_{{ chain_neutron_chain_id | replace('-', '_') }}"}[5m])) by (provider) > 0.6
+      annotations:
+        summary: "High API error rate for {% raw %}{{ $labels.provider }}{% endraw %}"
+        description: "Oracle API error rate exceeds 60% for provider {% raw %}{{ $labels.provider }}{% endraw %} over 5m period"
       labels:
         severity: warning
         service: validator
