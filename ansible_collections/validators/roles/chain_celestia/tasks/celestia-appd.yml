@@ -37,6 +37,28 @@
   loop:
     - { port: "{{ chain_celestia_appd_p2p_port }}", proto: tcp }
 
+- name: Gather facts from TMKMS host
+  ansible.builtin.setup:
+  delegate_to: remote-signer
+  delegate_facts: true
+  run_once: true
+
+- name: Debug hostvars structure
+  ansible.builtin.debug:
+    var: hostvars['remote-signer']
+  run_once: true
+
+- name: Celestia-appd | Firewall Allow Incoming TMKMS
+  community.general.ufw:
+    rule: allow
+    interface: "{{ public_interface }}"
+    direction: in
+    port: "{{ item.port }}"
+    proto: "{{ item.proto }}"
+    from_ip: "{{ hostvars['remote-signer']['ansible_tailscale0']['ipv4']['address'] }}"
+  loop:
+    - { port: "{{ chain_celestia_appd_privvalidator_addr.split(':')[-1] }}", proto: tcp }
+
 - name: Celestia-appd | Check configuration file
   ansible.builtin.stat:
     path: "{{ home_dir }}/config/config.toml"
@@ -181,6 +203,37 @@
     replace: \1"{{ chain_celestia_appd_seeds }}"
   become: true
   become_user: "{{ chain_celestia_user }}"
+  notify: Restart appd-{{ chain_celestia_chain_id }}
+
+- name: Celestia-appd | Create an empty persistent_peers array
+  ansible.builtin.set_fact:
+    peer_entries: []
+
+- name: Celestia-appd | Peers | Force gather facts from all peer hosts
+  ansible.builtin.setup:
+    gather_subset: network
+  delegate_to: "{{ item }}"
+  delegate_facts: true
+  loop: "{{ chain_celestia_appd_peer_hosts | default([]) }}"
+  ignore_unreachable: true
+  vars:
+    ansible_user: root
+
+- name: Celestia-appd | Peers | Process each peer host
+  ansible.builtin.include_tasks: peer_processing.yml
+  loop: "{{ chain_celestia_appd_peer_hosts | default([]) }}"
+  loop_control:
+    loop_var: peer_host
+
+- name: Celestia-appd | Join peer entries into persistent_peers string
+  ansible.builtin.set_fact:
+    persistent_peers: "{{ peer_entries | join(',') }}"
+
+- name: Celestia-appd | Update config.toml with persistent peers
+  ansible.builtin.replace:
+    path: "{{ home_dir }}/config/config.toml"
+    regexp: ^(persistent_peers\s*=\s*).*$
+    replace: \1"{{ persistent_peers }}"
   notify: Restart appd-{{ chain_celestia_chain_id }}
 
 - name: Celestia-appd | Enable systemd service

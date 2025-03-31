@@ -1,0 +1,31 @@
+---
+- name: Celestia-appd | Peers | Get node ID from peer host
+  ansible.builtin.command: celestia-appd tendermint show-node-id
+  register: node_id_result
+  changed_when: false
+  check_mode: false
+  delegate_to: "{{ peer_host }}"
+  vars:
+    ansible_user: "{{ chain_celestia_user }}"
+  failed_when: false
+  become: false
+
+- name: Celestia-appd | Peers | Get peer IP address
+  ansible.builtin.setup:
+    filter: ansible_default_ipv4
+  register: peer_ip_info
+  delegate_to: "{{ peer_host }}"
+  failed_when: false
+  ignore_unreachable: true
+  ignore_errors: true
+  vars:
+    ansible_user: "{{ chain_celestia_user }}"
+  become: false
+
+- name: Celestia-appd | Peers | Add peer entry to array
+  ansible.builtin.set_fact:
+    peer_entries: "{{ peer_entries + ['%s@%s:26656' | format(node_id_result.stdout | default(''), peer_host)] }}"
+  when:
+    - node_id_result is success
+    - node_id_result.stdout is defined
+    - node_id_result.stdout | length > 0

@@ -21,7 +21,7 @@
 
 - name: Restart celestia-bootstrapper-otel-collector-{{ chain_celestia_chain_id }}
   ansible.builtin.systemd_service:
-    name: celestia-da-otel-collector-{{ chain_celestia_chain_id }}
+    name: celestia-bootstrapper-otel-collector-{{ chain_celestia_chain_id }}
     state: restarted
 
 - name: Restart tmkms-{{ chain_celestia_chain_id }}
@@ -52,3 +52,9 @@
     name: nginx
     daemon_reload: true
     state: restarted
+
+- name: Restart keepalived
+  ansible.builtin.systemd_service:
+    name: keepalived
+    state: restarted
+  become: true

@@ -26,7 +26,7 @@
       # - --core.ip celestia-archive-grpc.fds78h2uifba506s982hbfa2.g.eu.link.numia.xyz
       # - --core.ip rpc.celestia.pops.one
       - --core.ip 127.0.0.1
-      - --core.port 9090
+      - --core.port {{ chain_celestia_appd_grpc_port_load_balanced }}
       - --metrics
       - --metrics.tls=false
       - --metrics.endpoint 127.0.0.1:{{ chain_celestia_bridge_otlp_http_port }}

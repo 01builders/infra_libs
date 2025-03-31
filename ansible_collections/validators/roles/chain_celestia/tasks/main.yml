@@ -50,7 +50,7 @@
     configure_hosts_users_username: "{{ chain_celestia_user }}"
 
 - name: Install Go
-  when: (chain_celestia_bridge is defined and chain_celestia_bridge | bool) or (chain_celestia_appd is defined and chain_celestia_appd | bool)
+  when: (chain_celestia_bridge is defined and chain_celestia_bridge | bool) or (chain_celestia_appd is defined and chain_celestia_appd | bool) or (chain_celestia_bootstrapper is defined and chain_celestia_bootstrapper | bool)
   ansible.builtin.include_role:
     name: binarybuilders.validators.global
     tasks_from: install-go.yml

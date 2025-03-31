@@ -20,15 +20,14 @@
   ansible.builtin.set_fact:
     chain_celestia_bootstrapper_conf_dir: .celestia-full
     flags:
-      - --experimental-pruning
       - --p2p.network {{ chain_celestia_network }}
       # - --core.ip celestia-archive-grpc.fds78h2uifba506s982hbfa2.g.eu.link.numia.xyz
       # - --core.ip rpc.celestia.pops.one
       - --core.ip 127.0.0.1
-      - --core.port 9090
-      # - --metrics
-      # - --metrics.tls=false
-      # - --metrics.endpoint 127.0.0.1:{{ chain_celestia_bridge_otlp_http_port }}
+      - --core.port {{ chain_celestia_appd_grpc_port_load_balanced }}
+      - --metrics
+      - --metrics.tls=false
+      - --metrics.endpoint 127.0.0.1:{{ chain_celestia_bootstrapper_otlp_prometheus_port }}
 
 - name: Celestia-node-bootstrapper | Firewall Allow Incoming on public interface
   community.general.ufw:
@@ -40,6 +39,16 @@
   loop:
     - { port: "32121", proto: tcp } # P2P
     - { port: "32121", proto: udp } # P2P
+
+- name: Celestia-node-bootstrapper | Create symlink for volume
+  when: chain_celestia_bootstrapper_volume is defined and chain_celestia_bootstrapper_volume | bool
+  ansible.builtin.file:
+    src: /mnt/nvme/full_node_home_dir
+    dest: /home/{{ chain_celestia_user }}/{{ chain_celestia_bootstrapper_conf_dir }}
+    state: link
+    mode: "0700"
+    owner: "{{ chain_celestia_user }}"
+    group: users
 
 - name: Celestia-node-bootstrapper | Check configuration file
   ansible.builtin.stat:
