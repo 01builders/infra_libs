@@ -1,0 +1,46 @@
+---
+- name: Quadlet volume file
+  containers.podman.podman_volume:
+    name: "{{ telegram_reposter_name }}"
+    state: quadlet
+    label:
+      app: "{{ telegram_reposter_name }}"
+
+- name: Quadlet container file
+  containers.podman.podman_container:
+    name: "{{ telegram_reposter_name }}"
+    image: "{{ telegram_reposter_image }}"
+    state: quadlet
+    command: python3 /app/telegram_reposter.py
+    env:
+      SLACK_TOKEN: "{{ telegram_reposter_slack_token }}"
+      SLACK_CHANNEL: validators-notifications
+      NOTIFIER_HEALTHCHECKS_ID: "{{ telegram_reposter_healthchecks_id }}"
+      LOG_LEVEL: INFO
+      TELEGRAM_API_ID: "{{ telegram_reposter_api_id }}"
+      TELEGRAM_API_HASH: "{{ telegram_reposter_api_hash }}"
+      TELEGRAM_CHANNEL_NAME: '"{{ telegram_reposter_channel_name }}"'
+      TELEGRAM_PHONE: "{{ telegram_reposter_phone_number }}"
+      IGNORE_PATTERN: "{{ telegram_reposter_ignore_pattern }}"
+    volumes:
+      - "{{ telegram_reposter_name }}.volume:/config:bind"
+    label:
+      app: "{{ telegram_reposter_name }}"
+    quadlet_options:
+      - |
+
+        [Unit]
+        Description="{{ telegram_reposter_name }}"
+        After=network-online.target
+        Wants=network-online.target
+
+        [Install]
+        WantedBy=default.target
+
+- name: Schedule task to run every 6 hours
+  ansible.builtin.cron:
+    name: "{{ telegram_reposter_name }}"
+    minute: "0"
+    hour: "*/6"
+    job: systemctl start "{{ telegram_reposter_name }}"
+    state: present
